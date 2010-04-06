@@ -1,0 +1,5 @@
+- hamcrest style matchers (for literate testing)
+- stubbing mechanisms for OTP behaviors (registration based or otherwise)
+- interception mechanisms for modules and/or processes based on tracing
+	- you can/should use matchers to define expectations about the results of tracing
+- simple, stand-alone API (no dependencies, no startup, just dive in)

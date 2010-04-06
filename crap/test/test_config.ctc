@@ -1,0 +1,38 @@
+{
+    trace_configuration, [
+        {trace_setup,
+            [
+                {trace_type, process}       %% port | process
+                %% {port_kind, ip},         %% ip | file, ignored in trace_type process
+                %% {port_kind, file}
+                %% {trace_port, 4711}       %% only used in 'ip' trace mode
+                %% {trace_port, {"node1", 4711}}
+                %% {filename, FileName}     %% only used in 'file' trace mode
+                %% {filename, "/home/pax/u-02-09-08-0902/systems/build/logs/trace.log"}
+            ]
+        },
+        {test_cases,
+            [
+                %% {injected_fun_code_is_executable, trace_updates}
+                %% {stubbing_return_value_existing_function, trace_upgrades}
+            ]
+        },
+        {trace_targets,            %% MFA
+            [
+                {trace_updates, [
+                    {mod, lib_test_stubs},
+                    {function, apply_upgrades},
+                    %%{arity, '_'}
+                    {match_spec, [{'_',[],[{exception_trace}]}]}, %% ,{message,{process_dump}}
+                    {pflags, [c, return_to]}
+                ]},
+                {trace_upgrades, [
+                    {mod, lib_test_stubs},
+                    {function, [upgrade_bytecode, upgrade_item]},
+                    {match_spec, [{'_',[],[{exception_trace}]}]},
+                    {pflags, [c, return_to]}
+                ]}
+            ]
+        }
+    ]
+}.

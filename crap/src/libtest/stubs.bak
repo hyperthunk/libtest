@@ -1,0 +1,330 @@
+%% @author Tim Watson <timwatson@munotify.com>
+%% @copyright 2007 author.
+
+%% @doc Library for stubbing modules at runtime, to assist with testing.
+
+%% Module annotations
+-module(lib_test.stubs).
+-author('Tim Watson <timwatson@munotify.com>').
+
+-export([apply_upgrades/1]).
+-export([stub/0, stub/1, stub_function/3, stub_return/4]).
+-export([log_calls/0]).
+
+-import(beam_lib).
+-import(code).
+-import(compile).
+-import(ct).
+-import(erl_parse).
+-import(error_logger).
+-import(file).
+-import(filename).
+-import(filelib).
+-import(io_lib).
+-import(lists).
+-import(proplists).
+-import(string).
+
+%% hack to keep cover tool happy...
+-import(ets).
+
+-define(ATTR_TYPE_INDEX, 3).
+-define(CODE_SEG_INDEX, 5).
+-define(FUN_NAME_INDEX, 3).
+
+log_calls() ->
+    spawn(fun() -> state_loop([]) end).
+
+state_loop(State) ->
+    receive
+        {getState, PID} -> PID ! State
+        ;
+        {update, NewState} -> state_loop([NewState|State])
+        ;
+        shutdown -> ok
+    end.
+
+%% @doc creates a stub specification for creating an anonymous module.
+stub() ->
+    GenName = string:concat(
+        string:concat(
+            "<stub:anon-module[",
+            atom_to_list(node())
+        ),
+        "]>"
+    ),
+    stub(GenName).
+
+%% @doc creates a stub specification with the supplied module name.
+%%
+%% stub = term()
+%% stub(ModName) -> stub()
+%% ModName = atom() | string()
+stub(ModName)
+    when is_list(ModName) ->
+    stub(list_to_atom(ModName))
+;
+stub(ModName)
+    when is_atom(ModName)->
+    {stub, [{module, ModName}]}.
+
+%% @doc applies all pending upgrades to the supplied stub specification.
+apply_upgrades({stub, SData}) ->
+    NewSData =
+    case lists:keysearch(module, 1, SData) of
+        {value, {module, TargetModule}} ->
+            apply_upgrades(TargetModule, SData)
+        ;
+        false -> throw({ebadconfig, "No target module has been defined!"})
+    end,
+    {stub, NewSData}.
+
+apply_upgrades(SData, {ok, {ModName,
+    [{abstract_code, {raw_abstract_v1, ByteCode}}|_]}}) ->
+    %%Attrs = lists:filter(
+    %%    fun({attribute, _, _, _}) -> true
+    %%        ;
+    %%       (_) -> false
+    %%    end,
+    %%    ByteCode
+    %%),
+    %%{value, {attribute, _, file, {FileName, _}}} =
+    %%    lists:keysearch(file, ?ATTR_TYPE_INDEX, Attrs),
+    UpgradedByteCode =
+    case lists:keysearch(functions, 1, SData) of
+        {value, {functions, NewCode}} ->
+            upgrade_bytecode({ModName, stub_filename(ModName, SData)}, ByteCode, NewCode)
+            ;
+        _ -> throw({ebadconfig, "No stubbed functions to upgrade!"})
+    end,
+    %%TODO: take this expression out once we're in production
+    ct:log("Upgraded byte code for module ~p: ~p.~n", [ModName, UpgradedByteCode]),
+    SData2 = lists:keystore(old_code, 1, SData, {old_code, ByteCode}),
+    lists:keystore(object_code_file, 1, SData2, {object_code_file, code:which(ModName)})
+;
+apply_upgrades(Module, SData) ->
+    case code:which(Module) of
+        non_existing ->
+
+            %%%%%%%% YOU ARE HERE %%%%%%%%%!
+
+            %%Beam = [{attribute, 1, file, {"./example_module.erl",1}},
+            %% {attribute,1,module,example_module},
+            %% {attribute,3,compile,export_all},
+            %% {function,5,test,0,
+            %%           [{clause,5,[],[],[{call,5,{remote,...},[...]}]}]},
+            %% {function,7,foobar,0,[{clause,7,[],[],[{atom,7,baz}]}]},
+            %% {eof,8}]}}]}}
+
+            throw({ebadconfig, "No such module!"})
+        ;
+        ModPath when is_list(ModPath) ->
+            %% TODO: figure out why this specific problem exists for us!?
+            error_logger:info_report(io_lib:format("mod-path: ~p", [ModPath])),
+            %%case lists:suffix(".erl", ModPath) of
+            %%    true  ->
+            %%        ct:pal("pwd: ~p", [file:get_cwd()]),
+            %%        AdjMpath = filename:join("test", filename:basename(ModPath, ".erl")),
+            %%        case code:ensure_loaded(Module) of
+            %%            {error, What} -> ct:pal("error: ~p", [What])
+            %%            ;
+            %%            _ ->
+            %%                ct:pal("loaded ok."),
+            %%                case filelib:is_file(code:which(Module)) of
+            %%                    true -> ct:pal("exists!")
+            %%                    ;
+            %%                    false ->
+            %%                        ct:pal("beam info: ~p", [beam_lib:info(Module)])
+            %%                end
+            %%        end,
+            %%        apply_upgrades(SData, beam_lib:chunks(AdjMpath, [abstract_code]))
+            %%    ;
+            %%    false ->
+            %%        apply_upgrades(SData, beam_lib:chunks(ModPath, [abstract_code]))
+            %%end
+            apply_upgrades(SData, beam_lib:chunks(ModPath, [abstract_code]))
+    end.
+
+rollback_changes({stub, SData}) ->
+    ok.
+
+upgrade_bytecode({ModName, FileName}, ByteCode, Upgrades) ->
+    Upgrade = upgrade_bytecode(ByteCode, Upgrades),
+    case code:soft_purge(ModName) of
+        true ->
+            Bin = compile_upgrade(Upgrade),
+            case filelib:is_file(FileName) of
+                true ->
+                    ct:log("Beam file ~p already exists - loading binary without touching disk.", [FileName])
+                ;
+                false ->
+                    file:write_file(FileName, Bin)
+            end,
+            case code:load_binary(ModName, FileName, Bin) of
+                {module, Mod}
+                    when (Mod == ModName) -> Upgrade
+                ;
+                %% errors propagate
+                {error, What} ->
+                    throw({ebadupgrade, {loading_failed, What}})
+            end
+        ;
+        false ->
+            ct:log("Failed to purge code for ~p.~n", [ModName]),
+            case string:rstr(
+                string:to_upper(atom_to_list(ModName)),
+                "SUITE"
+                ) of
+                0 -> ignored ;
+                _ -> ct:pal("Stubbing a running test suite is not allowed!")
+            end,
+            throw({enoupgrade,{unloading_failed, ModName}})
+    end.
+
+upgrade_bytecode([], [{function, _, Name, _, _}=Upgrade|Upgrades])
+    when is_list(Upgrades) ->
+    %% existing functions upgraded - now work on *new* (added) ones
+    [Upgrade|lists:keydelete(Name, 3, Upgrades)]
+;
+upgrade_bytecode([], []) ->
+    %% our work here is done!
+    []
+;
+upgrade_bytecode([_|_]=Nodes, []) ->
+    %% no more upgrades left, return the remaining unaltered nodes
+    Nodes
+;
+upgrade_bytecode(_ByteCode=[CH|CT], Upgrades) ->
+    {Upgrade, Remaining} = upgrade_item(CH, Upgrades),
+    [Upgrade|upgrade_bytecode(CT, Remaining)].
+
+upgrade_item({function, LN, Name, Arity, _}=Orig, Upgrades) ->
+    case lists:keytake(Name, 3, Upgrades) of
+        {value, {function, _, FN, Ar, Code}, Remaining}
+            when (FN == Name) andalso (Ar == Arity) ->
+                {{function, LN, FN, Ar, fix_up_line_numbers(Code, LN)}, Remaining}
+        ;
+        false -> {Orig, Upgrades}
+    end;
+upgrade_item(Other, Upgrades) ->
+    {Other, Upgrades}.
+
+fix_up_line_numbers(Code) ->
+    %% new (added) functions need line numbers assigned
+    {value, {eof, Max}} = lists:keysearch(eof, 1, Code),
+    {Fixed, Acc} = lists:mapfoldl(
+        fun({function, line, NM, AR, CD}, Line)
+            -> {{function, Line, NM, AR, fix_up_line_numbers(CD, Line)}, Line + 1}
+            ;
+           ({eof, _}, Line)
+            -> {{eof, Line + 1}, Line + 1}
+            ;
+           (Other, Line)
+            -> {Other, Line}
+        end,
+        Max,
+        Code
+    ),
+    lists:keyreplace(eof, 1, Fixed, {eof, Acc + 1}).
+
+fix_up_line_numbers([ASTNode|ASTNodes], Line) ->
+    [fix_up_line_numbers(ASTNode, Line)|fix_up_line_numbers(ASTNodes, Line)]
+;
+fix_up_line_numbers(ASTNode, Line) when is_tuple(ASTNode) ->
+    [Child, _LN|Children] = tuple_to_list(ASTNode),
+    list_to_tuple(
+        lists:append(
+            [Child, Line],
+            [ fix_up_line_numbers(Node, Line) || Node <- Children ]
+        )
+    )
+;
+fix_up_line_numbers(Node, _) ->
+    Node.
+
+compile_upgrade(Upgrade) ->
+    %%ct:pal("Comping upgrade: ~p~n", [Upgrade]),
+    Fixed = fix_up_line_numbers(Upgrade),
+    %%ct:pal("Fixed up line numbers: ~n~p~n", [Fixed]),
+    case compile:forms(Fixed, [debug_info]) of
+        {ok, Mod, Bin} -> Bin
+        ;
+        {ok, Mod, Bin, Warn} ->
+            Bin
+        ;
+        {error, Errors, Warnings} ->
+            throw({ebadupgrade,
+                {compile_errors, Errors},
+                {compile_warnings, Warnings}})
+        ;
+        Other ->
+            ct:log("Unknown/Unexpected compile errors: ~p.~n", [Other]),
+            throw({ebadupgrade, unexpected_compile_error})
+    end.
+
+stub_filename(Mod, SData) ->
+    case proplists:get_value(outdir, SData, nonexisting) of
+        nonexisting ->
+            atom_to_list(Mod)
+        ;
+        Dir when is_list(Dir) ->
+            ModName = atom_to_list(Mod),
+            filename:join(Dir, string:concat(
+                filename:basename(ModName, ".erl"), ".beam"))
+    end.
+
+is_replacement_fun_code(Funs, FName, Arity) ->
+    lists:any(
+        fun({function, _, FN, A, _})
+            when (FN == FName) andalso (A == Arity)
+                -> true
+            ;
+            (_) -> false
+        end,
+        Funs
+    ).
+
+%% @doc Configures the supplied stub to replace function FName
+%%      with the supplied fun. Throws {ebadconfig, Reason} unless you include
+%%      the test_support.hrl header.
+%%
+%% @spec stub_function(Stub::term(), FName::fname(), Fun::fun()) -> term()
+%% FName = atom() | string()
+%%
+stub_function({stub, SData}, FName,
+    {'fun', _,
+        {clauses, Clauses}}) ->
+    [{clause, _, Head, _, _}|_]=Clauses,
+    FDef = {function, line, FName, length(Head), Clauses},
+    update(SData, FDef)
+;
+stub_function(_Stub, _FName, Fun)
+    when is_function(Fun) ->
+    throw({ebadconfig,
+        "You must include the test_support.hrl header prior to calling this function."}).
+
+stub_return({stub, SData}, FName, Arity, RetVal) ->
+    Clauses = [
+        {clause,line,
+        lists:duplicate(Arity, {var,line,'_'}),
+        [],
+        [stub_return_clause(RetVal)]}
+    ],
+    FDef = {function, line, FName, Arity, Clauses},
+    %% TODO: deal with duplicate function definitions
+    update(SData, FDef).
+
+stub_return_clause(RetVal) ->
+    Code = erl_parse:abstract(RetVal),
+    fix_up_line_numbers(Code, line).
+
+update(SData, {function, _, _, _, _}=FDef) ->
+    {stub,
+        case lists:keysearch(functions, 1, SData) of
+            {value, FList} ->
+                lists:keyreplace(functions, 1, SData, {funtions, [FDef|FList]})
+            ;
+            false ->
+                lists:keystore(functions, 1, SData, {functions, [FDef]})
+        end
+    }.

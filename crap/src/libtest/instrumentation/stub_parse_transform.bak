@@ -1,0 +1,94 @@
+%% @author Tim Watson <watson.timothy@gmail.com>
+%% @copyright 2007 author.
+
+%% @doc Parse Transform to rewrite all calls to lib_stubs:stub_function which pass in a fun
+%%      to instead pass in an abstract representation of the fun's byte code, for use by the
+%%      runtime byte code manipulation functions used by the library.
+
+-module(stub_function_transform).
+
+-export([parse_transform/2]).
+
+parse_transform(AST, _Options) ->
+    %%dbg:tracer(),
+    %%dbg:tpl(?MODULE, transform_expr, '_', [{'_',[],[{exception_trace}]}]),
+    %%dbg:tpl(erl_lint, module, 3, [{'_',[],[{exception_trace}]}]),
+    %%dbg:p(all,[c]),
+    Result = transform(AST),
+    %%dbg:ctp({?MODULE, transform_expr, '_'}),
+    %%dbg:ctp({erl_lint, module, 3}),
+    Result.
+
+transform({function, LN, Name, Arity, Clauses}) ->
+    {function, LN, Name, Arity, transform_clauses(Clauses)}
+;
+transform([Node|Nodes]) ->
+    [transform(Node)|transform(Nodes)]
+;
+transform([]) ->
+    []
+;
+transform(ASTNode) -> ASTNode.
+
+transform_clauses([Clause|Clauses]) ->
+    [transform_clause(Clause)|transform_clauses(Clauses)]
+;
+transform_clauses([]) ->
+    [].
+
+transform_clause({clause, LN, Head, Guards, Body}) ->
+    {clause, LN, Head, Guards, transform_body(Body)}.
+
+transform_body([Expr|Exprs]) ->
+    [transform_expr(Expr)|transform_body(Exprs)]
+;
+transform_body([]) ->
+    []
+;
+transform_body(Other) ->
+    Other.
+
+transform_expr({call, Line, {remote, L2,
+    {atom, L3, lib_test_stubs},
+    {atom, L4, stub_function}}, Args}) ->
+    ReplacementCall =
+    {call, Line,
+        {remote, L2,
+            {atom, L3, lib_test_stubs},
+            {atom, L4, stub_function}
+        },
+        transform_args(Args)
+    },
+    %%io:format("REPLACED: ~p~n", [ReplacementCall]),
+    ReplacementCall
+;
+transform_expr(Tuple) when is_tuple(Tuple) ->
+    %%io:format("Transforming tuple: ~p~n", [Tuple]),
+    transform_tuple_contents(tuple_to_list(Tuple))
+;
+transform_expr([Expr|Exprs]) ->
+    [transform_expr(Expr)|transform_expr(Exprs)]
+;
+transform_expr([]) ->
+    []
+;
+transform_expr(Expr) ->
+    Expr.
+
+transform_tuple_contents([Expr|Exprs]) ->
+    list_to_tuple([transform_expr(Expr)|transform_expr(Exprs)])
+;
+transform_tuple_contents([]) ->
+    [].
+
+transform_args({'fun', Line, {clauses, _Clauses}}=Code) ->
+    {tuple, _, DataDefinition} =
+        erl_parse:abstract(Code),
+    {tuple, Line, DataDefinition}
+;
+transform_args([Arg|Args]) ->
+    [transform_args(Arg)|transform_args(Args)]
+;
+transform_args([]) -> []
+;
+transform_args(Other) -> Other.

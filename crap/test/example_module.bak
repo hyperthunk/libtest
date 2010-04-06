@@ -1,0 +1,7 @@
+-module(example_module).
+
+-compile(export_all).
+
+test() -> io:format("Test ~p.~n", [?MODULE]).
+
+foobar() -> baz.

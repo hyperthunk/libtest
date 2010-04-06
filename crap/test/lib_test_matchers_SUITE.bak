@@ -1,0 +1,114 @@
+%% @author Tim Watson <watson.timothy@gmail.com>
+%% @copyright 2008 Tim Watson.
+
+%% module annotations
+-module(lib_test_matchers_SUITE).
+-author('Tim Watson <watson.timothy@gmail.com>').
+
+%% compilation directives
+-compile(export_all).
+
+%% stdlib/kernel imports
+-import(ct).
+-import(lib_test, [assert_equals/2, assert_throws/2, assert_throws/1]).
+
+%% stdlib/kernel imports
+-include_lib("common_test/include/ct.hrl"). %% do not reorder this with the test_support.hrl include!
+
+%% contrib imports/includes
+-import(lib_test.suite_util).
+-import(lib_test.matchers, [
+    assert_that/2,
+    assert_that/3,
+    equal/1,
+    is/1,
+    is_not/1,
+    anything/0,
+    any/1
+]).
+
+%% DO NOT REMOVE - this must come *after* the ct.hrl header
+-include_lib("lib_test/include/test_support.hrl").
+
+%% public api exports
+
+%% automatically registers all exported functions as test cases
+all() -> lib_test.suite_util:register_module_exports(?MODULE).
+
+%% sets up automated trace configuration (see test_config.ctc for details)
+init_per_testcase(TestCase, Config) ->
+    NewConfig = lib_test.suite_util:load_trace_configuration(TestCase, Config),
+    io:format("~p~n", [NewConfig]),
+    NewConfig.
+
+%% tears down trace configuration - DO NOT REMOVE
+end_per_testcase(_TestCase, Config) ->
+    lib_test.suite_util:unload_trace_configuration(Config).
+
+%% matchers
+
+is_shortcuts_equals(_) ->
+    X = foobar,
+    Y = X,
+    Eql = equal(X),
+    Is = is(X),
+    YeqX = Eql(Y),
+    YisX = Is(Y),
+    YisX = YeqX.
+
+is_called_with_fun_wraps(_) ->
+    Fun = fun(_) -> {match, 'fun'} end,
+    Is = is(Fun),
+    {match, 'fun'} = Is(input).
+
+equal_returns_match_spec(_) ->
+    X = {foo, bar, baz}, Y = X,
+    Matcher = equal(X),
+    {match, [{target, Y}, {op, '=='}]} = Matcher(Y).
+
+is_not_should_switch_match_to_nomatch(_) ->
+    Matcher = is_not(fun(_) -> {match, ignored} end),
+    {nomatch, ignored} = Matcher(input).
+
+is_not_should_switch_nomatch_to_match(_) ->
+    Matcher = is_not(fun(_) -> {nomatch, ignored} end),
+    {match, ignored} = Matcher(input).
+
+anything_should_ignore_input(_) ->
+    {match, _, _} = assert_that("abc", is(anything())).
+
+any_should_eval_until_match_is_found(_) ->
+    FailingMatcher = is(abc),
+    OkMatcher = is_not(equal(123)),
+    AnyMatcher = any([FailingMatcher, OkMatcher]),
+    {match, _} = AnyMatcher(456). %% should match is_not(equal(123))
+
+any_doesnt_short_cut_eval(_) ->
+    ExplodingMatcher = fun(_) -> throw({explode, sabotage}) end,
+    OkMatcher = is_not(equal("a string")),
+    AnyMatcher = any([OkMatcher, ExplodingMatcher]),
+    assert_throws(fun() -> AnyMatcher("a string") end).
+
+all_should_shortcut_eval(_) ->
+    %% TODO: finish this off!
+    ignored.
+
+assert_that2_should_return_original_input(_) ->
+    Input = "abcdefghijklmnopqrstuvwxyz",
+    {match, Input, _} = assert_that(Input, fun(_) -> {match, ok} end).
+
+assert_that2_should_return_match_desc_intact(_) ->
+    {match, _, matchdesc} = assert_that("ingored",
+        fun(_) -> {match, matchdesc} end).
+
+assert_that3_should_format_matchdesc(_) ->
+    {_, _, "\"matchdesc\""} =
+        assert_that(formatting_test,
+        fun(_) -> {match, [matchdesc]} end,
+        "~p").
+
+assert_that3_should_listify_single_results(_) ->
+    {_, _, "\"foo is foo\""} =
+        assert_that(another_formatting_test,
+        fun(_) -> {match, foo} end,
+        "foo is ~p").

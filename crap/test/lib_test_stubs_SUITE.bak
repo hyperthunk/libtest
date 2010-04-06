@@ -1,0 +1,159 @@
+%% @author Tim Watson <timwatson@munotify.com>
+%% @copyright 2007 author.
+
+-module(lib_test_stubs_SUITE).
+-author('Tim Watson <timwatson@munotify.com>').
+
+-compile(export_all).
+
+%% -compile({parse_transform,  stub_function_transform}).
+
+-include_lib("lib_test/include/test_support.hrl").
+-include_lib("common_test/include/ct.hrl").
+
+-import(lib_test, [assert_equals/2, assert_match/2]).
+-import(lib_test.stubs, [stub/0, stub/1, stub_function/3]).
+
+all() -> lib_test.suite_util:register_module_exports(?MODULE).
+
+init_per_testcase(TestCase, Config) ->
+    NewConfig = lib_test.suite_util:load_trace_configuration(TestCase, Config),
+    io:format("~p~n", [NewConfig]),
+    NewConfig.
+
+end_per_testcase(_TestCase, Config) ->
+    lib_test.suite_util:unload_trace_configuration(Config).
+
+creating_anonymous_module() ->
+    ?TESTDOC("Creating an anonymous 'stubbed' module.").
+
+creating_anonymous_module(_Config) ->
+    assert_match(
+        fun({stub, [{module, MName}]})
+            when is_atom(MName) -> ct:pal("stub generated module name is ~p.~n", [MName])
+        end,
+        stub()
+    ).
+
+creating_named_module() ->
+    ?TESTDOC("Creating a named 'stub' module.").
+
+creating_named_module(_Config) ->
+    MN = my_module_name,
+    assert_match(
+        fun({stub, [{module, ModName}]}) when (ModName == MN)-> ok end,
+        stub(my_module_name)
+    ).
+
+stubbing_return_value_new_function(_Config)->
+    Arity = 2,
+    FName = do_blah,
+    Value = fortitude,
+    Stub = stub(),
+    {stub, StubData} = lib_test.stubs:stub_return(Stub, FName, Arity, Value),
+    {value, {functions, [Function|_]}} = lists:keysearch(functions, 1, StubData),
+    assert_match(
+        fun({function, _, do_blah, 2, [_|_]}) -> ok end,
+        Function
+    ).
+
+stubbing_return_value_existing_function(Config) ->
+    Stub1 = lib_test.stubs:stub(example_module),
+    {stub, SData} = Stub1,
+    Stub = lib_test.stubs:apply_upgrades(
+        lib_test.stubs:stub_return(
+            {stub, [{outdir, ?config(priv_dir,Config)}|SData]},
+            foobar,
+            0,
+            value
+        )
+    ),
+    try (example_module:foobar()) of
+        value -> ok
+        ;
+        baz -> ct:fail("Didn't upgrade retval properly!")
+    catch
+        Class:Pattern -> ct:fail("Failed with ~p:~p.~n", [Class, Pattern])
+    end.
+
+stubbing_return_value_new_module(Config) ->
+    %% this is equiv to stub() except we're assigning a useful name
+    %%{stub, SData} = lib_test.stubs:stub(new_mod1),
+    %%Stub = lib_test.stubs:apply_upgrades(
+    %%    lib_test.stubs:stub_return(
+    %%        {stub, [{outdir, ?config(priv_dir,Config)}|SData]},
+    %%        hello_world,
+    %%        0,
+    %%        {complex, {nested, {tuple, ['hello', 'world']}}}
+    %%    )
+    %%),
+    %%lib_test:assert_match(
+    %%    fun(Thing) ->
+    %%        {complex, {nested, {tuple, ['hello', 'world']}}} = Thing
+    %%    end,
+    %%    new_mod1:hello_world()
+    %%).
+    ?NOT_IMPLEMENTED.
+
+stubbing_expression_new_function(_Config) ->
+    ?NOT_IMPLEMENTED.
+
+stubbing_expression_existing_function(_Config) ->
+    ?NOT_IMPLEMENTED.
+
+fun_code_is_replaced_by_parse_transform(_Config) ->
+    %%FN = blame,
+    %%Stub = stub(),
+    %%{stub, StubData} =
+    %%lib_test.stubs:stub_function(
+    %%    Stub,
+    %%    blame,
+    %%    fun({t4, "tech-festing"}) -> chill_out end
+    %%),
+    %%{value, {functions, [Function|_]}} = lists:keysearch(functions, 1, StubData),
+    %%assert_match(
+    %%    fun(
+    %%        {function,_,blame,_,
+    %%              [{clause,_,
+    %%                       [{tuple,_,[{atom,_,t4},{string,_,"tech-festing"}]}],
+    %%                       [],
+    %%                       [{atom,_,chill_out}]}]}
+    %%    ) ->
+    %%        ok
+    %%        ;
+    %%        (Other) -> ct:fail(Other)
+    %%    end,
+    %%    Function
+    %%).
+    ?NOT_IMPLEMENTED.
+
+injected_fun_code_is_executable(_Config) ->
+    %% try this in the current module!
+    %%Stub = lib_test.stubs:stub(example_module),
+    %%Stub2 = lib_test.stubs:stub_function(
+    %%    Stub,
+    %%    foo_function,
+    %%    fun({foo, bar}) -> "FOOBAR" end
+    %%),
+    %%Stub3 = lib_test.stubs:apply_upgrades(Stub2),
+    %%ct:pal("~p~n", [Stub3]),
+    %%ct:pal("functions: ~p.~n", [example_module:module_info()]),
+    %%assert_equals(
+    %%    "FOOBAR",
+    %%    example_module:foo_function({foo, bar})
+    %%).
+    ?NOT_IMPLEMENTED.
+
+stubbed_modules_rollback(_Config) ->
+    ?NOT_IMPLEMENTED.
+
+stubbing_implementation_existing_function(_Config) ->
+    ?NOT_IMPLEMENTED.
+
+%%replacing_fun_code() ->
+%%    lib_stubs:stub_function(stub(), print_coords,
+%%        fun({x,1}, {y,10}) -> io:format("x = ~p, y = ~p~n", [1, 10]) end).
+%%
+%%replacing_fun_code2() ->
+%%    stub_function(stub(), print_coords1,
+%%        fun({{x,1}, {y,10}}) -> io:format("x = ~p, y = ~p~n", [1, 10]) end).

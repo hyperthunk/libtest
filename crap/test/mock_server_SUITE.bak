@@ -1,0 +1,46 @@
+%% @author Tim Watson <watson.timothy@gmail.com>
+%% @copyright 2008 Tim Watson.
+
+%% module annotations
+-module(mock_server_SUITE).
+-author('Tim Watson <watson.timothy@gmail.com>').
+
+%% compilation directives
+-compile(export_all).
+
+%% stdlib/kernel imports
+-import(ct).
+
+%% stdlib/kernel imports
+-include_lib("common_test/include/ct.hrl"). %% do not reorder this with the test_support.hrl include!
+
+%% contrib imports/includes
+-import(libtest.mock_behaviors.mock_server).
+
+-include_lib("libtest/include/libtest.hrl").
+
+%% public api exports
+
+%% automatically registers all exported functions as test cases
+all() -> ?CT_REGISTER_TESTS(?MODULE).
+
+raw_startup_produces_real_gen_server(_Config) ->
+    catch( mock_server:stop() ),
+    {ok, Pid} = mock_server:start(),
+    Pid = whereis(libtest.mock_server),
+    unregister(libtest.mock_server), exit(Pid, kill).
+
+stop_should_kill_genserv_process(_Config) ->
+    {exit_conditions, "terminated by user"}
+        = mock_server:stop().
+
+starting_already_stubbed_server_should_bounce(_) ->
+    Name = foobarbaz,
+    Stub = mock_server:stub(Name),
+    OriginalPid = whereis(Name),
+    gen_server:call(libtest.mock_server, show),
+    Stub2 = mock_server:stub(Name),
+    libtest:assert(OriginalPid =/= whereis(Name), "", []).
+
+server_should_track_calls(_) ->
+    ok.

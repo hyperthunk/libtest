@@ -1,40 +1,46 @@
-.SUFFIXES: 
+# -----------------------------------------------------------------------------
+#
+# Libtest.
+#
+# Copyright (c) 2010 Tim Watson (watson.timothy@gmail.com)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+# -----------------------------------------------------------------------------
 
-# env
-ERL ?= erl
-ERL_TOP ?= /usr/local/lib/erlang
-EBIN=./ebin
-CODE_PATH := -pa $(EBIN) 
-ERL_BOOT := -s ct_run script_start -s erlang halt
-ERL_FLAGS=$(CODE_PATH) $(ERL_BOOT) -I include 
-BEAMDIRS := `find src -type d | sed s/src/ebin/`
-COVER_SOURES := `find src -type f | sed s/src/ebin/`
-TESTLOGS=./test/logs
+ERL ?= `which erl`
+ERL_LIBS := $(shell echo "./deps:`echo $$ERL_LIBS`")
+VERBOSE ?= ""
 
-PORT_TEST_DIR := test/port_server_SUITE_data
-PORT_TEST_CSRC := `find test/port_server_SUITE_data -type f | grep .c`
-PORT_TEST_OBJ=$(patsubst %.c, %.o, $(PORT_TEST_CSRC))
+all: info clean test
 
-# rules and tasks
+info:
+	$(info erl program located at $(ERL))
+	$(info ERL_LIBS set to $(ERL_LIBS))
 
-.PHONY: clean build test 
-
-all: clean build
-
-#TODO: this is very ugly - we should at least set up rules instead
-test: $(TESTLOGS) $(COVER_SOURCES) build
-	touch ./libtest.coverdata
-	$(ERL) -sname ct $(ERL_FLAGS) -logdir $(TESTLOGS) -dir test -cover coverage.spec
-
-build: $(EBIN)
-	$(ERL) -noshell -make
-
-$(EBIN):
-	mkdir -p $(BEAMDIRS)
-
-$(TESTLOGS): 
-	mkdir -p $@
+compile:
+	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE compile)
 
 clean:
-	rm -rf $(EBIN) test/*.beam $(TESTLOGS)
+	@(./rebar clean)
 
+edoc:
+	@$(ERL) -noshell -run edoc_run application '$(APP)' '"."' '[{preprocess, true},{includes, ["."]}]'
+
+test: compile
+	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE test)

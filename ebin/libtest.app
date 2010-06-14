@@ -1,10 +1,8 @@
 {application, libtest,
  [
-  {description, ""},
-  {vsn, "1"},
-  {modules, [
-             'libtest_matchers'
-            ]},
+  {description, "General Testing Utilities"},
+  {vsn, "0.0.1"},
+  {modules, []},
   {registered, []},
   {applications, [
                   kernel,

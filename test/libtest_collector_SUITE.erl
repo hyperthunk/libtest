@@ -1,6 +1,6 @@
 %% -----------------------------------------------------------------------------
 %%
-%% Libtest.
+%% Libtest Collector (Server) SUITE
 %%
 %% Copyright (c) 2010 Tim Watson (watson.timothy@gmail.com)
 %%
@@ -24,9 +24,8 @@
 %% -----------------------------------------------------------------------------
 %% @author Tim Watson <watson.timothy@gmail.com>
 %% @copyright 2010 Tim Watson.
-%% @doc Libtest API - provides high level API to underlying libtest features.
 %% -----------------------------------------------------------------------------
 
--module(libtest).
+-module(libtest_collector_SUITE).
 
 

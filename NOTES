@@ -1,5 +1,11 @@
 - hamcrest style matchers (for literate testing)
 - stubbing mechanisms for OTP behaviors (registration based or otherwise)
-- interception mechanisms for modules and/or processes based on tracing
-	- you can/should use matchers to define expectations about the results of tracing
-- simple, stand-alone API (no dependencies, no startup, just dive in)
+
+- TODO
+
+- collector process/server to handle the incoming calls from mocks/stubs
+- configure the collector at the API level
+- wrap emock with driver that pushes to the collector process
+    - do we await confirmation from the collector that the interaction succeeds?
+    - or provide a verification step (via the API) whose invocation checks post test
+    - or provide both and expose a mechanism to choose between the two

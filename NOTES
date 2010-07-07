@@ -8,4 +8,22 @@
 - wrap emock with driver that pushes to the collector process
     - do we await confirmation from the collector that the interaction succeeds?
     - or provide a verification step (via the API) whose invocation checks post test
-    - or provide both and expose a mechanism to choose between the two
+    - or provide both and expose a mechanism to choose between the two <tick>
+
+what does my test code look like?
+
+-include_lib("libtest/include/libtest.hrl").
+
+testcase(_) ->
+    MockPid = mock_proxy(Fun, [?OPTIONS2]),
+    MockSvr = mock_proxy(gen_mod_name, [?OPTIONS]),
+    MockFsm = mock_proxy(gen_fsm_name, [?OPTIONS3]),
+    ?ORDERED(
+        expect_that(when(MockFsm, is_in(State)), and_receives(Term), resulting_state_is(State2)),
+        expect_that(when(MockFsm, is_in(State2)), and_receives(Term2), it_will_return_to_previous_state())
+    ),
+    expect_that(MockSvr, should_receive(call, Term)),
+    expect_that(MockSvr, should_receive(cast, Term), resulting_in(ResponseFun | {M,F,A})),
+    assert_that(MockSvr, should_receive(info, Term), responding_with(ResponseFun | {M,F,A}, Term)),
+    assert_that(MockPid, should_receive(Term, Sender)),
+    assert_that(MockPid, should_receive(Term)).

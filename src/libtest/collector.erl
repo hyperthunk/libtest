@@ -36,6 +36,8 @@
 
 -behavior(libtest.gen_server2).
 
+-include_lib("hamcrest/include/hamcrest.hrl").
+
 -import(ets). %% to keep the cover tool happy
 
 -import(proplists).

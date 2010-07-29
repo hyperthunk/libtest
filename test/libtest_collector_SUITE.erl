@@ -30,7 +30,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("triq/include/triq.hrl").
 -include_lib("hamcrest/include/hamcrest.hrl").
 -include("../include/libtest.hrl").
 -include("../include/libtest_internal.hrl").
@@ -39,28 +38,30 @@
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
 init_per_suite(Config) ->
-    case whereis(?COLLECTOR) of
-        undefined ->
-            Pid = emock:gen_server(fun call_handler/2, []),
-            ct:pal("registering ~p", [Pid]),
-            register(?COLLECTOR, Pid),
-            unlink(Pid),
-            ct:pal("registered ~p @ ~p", [Pid, whereis(?COLLECTOR)]);
-        Pid ->
-            unregister(?COLLECTOR),
-            exit(Pid, normal),
-            register(?COLLECTOR, emock:gen_server(fun call_handler/2, []))
-    end,
-    Config.
+  %%case whereis(?COLLECTOR) of
+  %%    undefined ->
+  %%        Pid = emock:gen_server(fun call_handler/2, []),
+  %%        ct:pal("registering ~p", [Pid]),
+  %%        register(?COLLECTOR, Pid),
+  %%        unlink(Pid),
+  %%        ct:pal("registered ~p @ ~p", [Pid, whereis(?COLLECTOR)]);
+  %%    Pid ->
+  %%        unregister(?COLLECTOR),
+  %%        exit(Pid, normal),
+  %%        register(?COLLECTOR, emock:gen_server(fun call_handler/2, []))
+  %%end,
+  {ok, Pid} = ?COLLECTOR:start(),
+  catch( register(?COLLECTOR, Pid) ),
+  Config.
 
 end_per_suite(_Config) ->
-    unregister(?COLLECTOR),
-    exit(Pid, normal),
-    ok.
+  Pid = whereis(?COLLECTOR),
+  catch( unregister(?COLLECTOR) ),
+  catch( exit(Pid, normal) ),
+  ok.
 
-test_it(_) ->
-    ?COLLECTOR:,
-    ok.
-
-call_handler({call, Registered}, {register, Add}) ->
-	{reply, registered, [Add|Registered]}.
+shutdown_can_be_controlled(_) ->
+  Pid = ?COLLECTOR:start(),
+  ?assertThat(Pid, isalive()),
+  ?COLLECTOR:stop(Pid),
+  ?assertThat(Pid, isdead()).

@@ -48,8 +48,12 @@
         ,code_change/3]).
 
 -export([start/0
-        ,start/1
         ,start_link/1]).
+
+-record(state, {
+  
+  options = [] :: [term()]
+}).
 
 %% -----------------------------------------------------------------------------
 %%      Public API
@@ -59,66 +63,23 @@
 %% @doc Starts the collector without any configuration.
 %%
 start() ->
-    do_start(start, []).
+  do_start(start, []).
 
 %%
 %% @doc Starts the server with the supplied configuration.
 %%
-%% Options = [
-%%     {scope, local | global}   %% indicates local versus global registration
-%%    ]
-%%
-%%
-start(Options) ->
-    do_start(start,
-        [{proplists:get_value(scope, Options), ?MODULE}, ?MODULE, Options, []]).
-
-%%
-%% @doc Starts the server with the supplied configuration.
-%%
-%% -spec(start_link/1 :: (Options::[server_option()]) -> term()).
 start_link(Options) ->
-    do_start(start_link,
-        [{proplists:get_value(scope, Options), ?MODULE}, ?MODULE, Options, []]).
+  do_start(start_link, Options).
 
 do_start(StartupMode, Options) ->
-    apply(libtest.gen_server2, StartupMode, Options).
+  apply(proc_lib, StartupMode, [?MODULE,init_it,[self()|Options]).
 
-%% -----------------------------------------------------------------------------
-%% gen_server2 callbacks
-%% -----------------------------------------------------------------------------
+init_it([Parent|Options]) ->
+  proc_lib:init_ack(Parent, {ok, self()}),
+  loop(Options).
 
-%% @hidden
-%% initializes the server with the current "state of the world"
-init(_Args) ->
-    ok.
-
-handle_call(_Msg, {_From, _Tag}, State) ->
-%%%
-%%%    ==> {reply, Reply, State}
-%%%        {reply, Reply, State, Timeout}
-%%%        {noreply, State}
-%%%        {noreply, State, Timeout}
-%%%        {stop, Reason, Reply, State}
-%%%              Reason = normal | shutdown | Term terminate(State) is called
-    {reply, State, State}.
-
-handle_cast(_Msg, State) ->
-%%%    ==> {noreply, State}
-%%%        {noreply, State, Timeout}
-%%%        {stop, Reason, State}
-%%%              Reason = normal | shutdown | Term terminate(State) is called
-    {noreply, State}.
-
-handle_info(_Info, State) ->
-    {noreply, State}.
-
-terminate(_Reason, _State) ->
-    ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-%% -----------------------------------------------------------------------------
-%%      Private API
-%% -----------------------------------------------------------------------------
+loop(State) ->
+  receive
+    X -> ok
+  end,
+  loop(State).

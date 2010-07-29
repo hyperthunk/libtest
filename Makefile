@@ -24,8 +24,13 @@
 # -----------------------------------------------------------------------------
 
 ERL ?= `which erl`
-ERL_LIBS := $(shell echo "./deps:`echo $$ERL_LIBS`")
+ERL_LIBS := $(shell echo "./lib/emock:./deps:`echo $$ERL_LIBS`")
 VERBOSE ?= ""
+HERE := $(shell pwd)
+BUILD := $(HERE)/build
+
+all: check info
+    $(info ready to run the test, package and/or install tasks)
 
 all: info clean test
 
@@ -33,17 +38,17 @@ info:
 	$(info erl program located at $(ERL))
 	$(info ERL_LIBS set to $(ERL_LIBS))
 
-check:
-	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE check-deps)
+precompile: 
+	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE check-deps skip_deps=true)
 
-compile: check
-	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE compile)
+compile: precompile
+	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE compile skip_deps=true)
 
 clean:
-	@(./rebar clean)
+	@(./rebar clean skip_deps=true)
 
 edoc:
 	@$(ERL) -noshell -run edoc_run application '$(APP)' '"."' '[{preprocess, true},{includes, ["."]}]'
 
 test: compile
-	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE test)
+	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE ct skip_deps=true)

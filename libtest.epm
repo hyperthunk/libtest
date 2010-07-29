@@ -1,5 +1,4 @@
 [{deps, [
     {"hyperthunk/hamcrest-erlang", []},
-    {"krestenkrab/triq", []},
     {"noss/emock", []}
     ]}].

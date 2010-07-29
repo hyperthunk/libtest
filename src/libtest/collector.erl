@@ -34,9 +34,7 @@
 -module(libtest.collector).
 -author('Tim Watson <watson.timothy@gmail.com>').
 
--behavior(libtest.gen_server2).
-
--include_lib("hamcrest/include/hamcrest.hrl").
+-behavior('libtest.gen_server2').
 
 -import(ets). %% to keep the cover tool happy
 

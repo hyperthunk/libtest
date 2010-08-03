@@ -43,9 +43,7 @@
 
 -define(WAIT_FOR_MESSAGE(Term),
   begin
-    ?PDEBUG("suspending process by selective receive...~n", []),
-    receive Term -> ok end,
-    ?PDEBUG("process resuming...~n", [])
+    receive Term -> ok end
   end).
 
 -define(PDEBUG(Pattern, Args),

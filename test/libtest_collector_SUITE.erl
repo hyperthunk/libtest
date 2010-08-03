@@ -38,30 +38,36 @@
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
 init_per_suite(Config) ->
-  %%case whereis(?COLLECTOR) of
-  %%    undefined ->
-  %%        Pid = emock:gen_server(fun call_handler/2, []),
-  %%        ct:pal("registering ~p", [Pid]),
-  %%        register(?COLLECTOR, Pid),
-  %%        unlink(Pid),
-  %%        ct:pal("registered ~p @ ~p", [Pid, whereis(?COLLECTOR)]);
-  %%    Pid ->
-  %%        unregister(?COLLECTOR),
-  %%        exit(Pid, normal),
-  %%        register(?COLLECTOR, emock:gen_server(fun call_handler/2, []))
-  %%end,
-  {ok, Pid} = ?COLLECTOR:start(),
-  catch( register(?COLLECTOR, Pid) ),
-  Config.
+  %%?PDEBUG("starting ~p~n", [?GEN_SERVER]),
+  {ok, Server} = ?COLLECTOR:start_link(),
+  ?PDEBUG("collector startup: ~p~n", [Server]),
+  ?PDEBUG("collector registered against ~p", [global:whereis_name(?COLLECTOR)]),
+  ?PDEBUG("in init - is server alive? ~p~n", [erlang:is_process_alive(Server)]),
+  [{server, Server}|Config].
+  %%Pid = spawn(?MODULE, loop, []),
+  %%{ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  %%global:register_name(?COLLECTOR, Pid),
+  %%?PDEBUG("collector registered against ~p", [global:whereis_name(?COLLECTOR)]),
+  %%global:sync(),
+  %%rpc:call(Slave, global, sync, []),
+  %%[{slave, Slave}|Config].
 
-end_per_suite(_Config) ->
-  Pid = whereis(?COLLECTOR),
-  catch( unregister(?COLLECTOR) ),
-  catch( exit(Pid, normal) ),
+end_per_suite(Config) ->
+  %%?PDEBUG("stopping [~p]~n", [catch( ?COLLECTOR:stop() )]),
+  %%Slave = ?config(slave, Config),
+  %%slave:stop(Slave),
   ok.
 
-shutdown_can_be_controlled(_) ->
-  Pid = ?COLLECTOR:start(),
-  ?assertThat(Pid, isalive()),
-  ?COLLECTOR:stop(Pid),
-  ?assertThat(Pid, isdead()).
+collector_is_singleton_process(Config) ->
+  Server = ?config(server, Config),
+  ?PDEBUG("in test - collector registered against ~p~n", [global:whereis_name(?COLLECTOR)]),
+  ?PDEBUG("in test - is server alive? ~p~n", [erlang:is_process_alive(Server)]),
+  ?PDEBUG("server ~p status: ~p~n", [Server, gen_server:call(?COLLECTOR, whassup)]),
+  %% erlang:is_process_alive(Server)]),
+  
+  %%Slave = ?config(slave, Config),
+  {ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  Location = global:whereis_name(?COLLECTOR),
+  RemoteLocation = rpc:call(Slave, global, whereis_name, [?COLLECTOR]),
+  ?PDEBUG("comparing ~p to ~p...~n", [RemoteLocation, Location]),
+  ?assertThat(RemoteLocation, is(equal_to(Location))).

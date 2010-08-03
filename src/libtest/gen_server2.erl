@@ -127,6 +127,17 @@
 -export([init_it/6, print_event/3]).
 
 -import(error_logger, [format/2]).
+-import(gen).
+-import(global).
+-import(queue).
+-import(proc_lib).
+-import(sys).
+-import(erlang).
+-import(rpc).
+-import(io).
+-import(code).
+-import(init).
+-import(lists).
 
 %%%=========================================================================
 %%%  API

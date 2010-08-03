@@ -34,11 +34,27 @@
 -module(libtest.collector).
 -author('Tim Watson <watson.timothy@gmail.com>').
 
--behavior('libtest.gen_server2').
+-include("libtest.hrl").
+-include("libtest_internal.hrl").
 
 -import(ets). %% to keep the cover tool happy
+-import(error_logger).
+-import(lists).
+-import(gen_server).
 
--import(proplists).
+-behaviour(gen_server).
+
+%% ------------------------------------------------------------------
+%% API Function Exports
+%% ------------------------------------------------------------------
+
+-export([start_link/0
+        ,start_link/1
+        ,stop/0]).
+
+%% ------------------------------------------------------------------
+%% gen_server Function Exports
+%% ------------------------------------------------------------------
 
 -export([init/1
         ,handle_call/3
@@ -47,12 +63,8 @@
         ,terminate/2
         ,code_change/3]).
 
--export([start/0
-        ,start_link/1]).
-
 -record(state, {
-  
-  options = [] :: [term()]
+  options   = []          :: [term()]
 }).
 
 %% -----------------------------------------------------------------------------
@@ -60,26 +72,68 @@
 %% -----------------------------------------------------------------------------
 
 %%
-%% @doc Starts the collector without any configuration.
+%% @doc Starts the server with default configuration values.
 %%
-start() ->
-  do_start(start, []).
-
+start_link() ->
+  start_link([]).
+  
 %%
 %% @doc Starts the server with the supplied configuration.
 %%
 start_link(Options) ->
-  do_start(start_link, Options).
+  gen_server:start_link({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
+  
+stop() ->
+  %%?PDEBUG("sending kill signal to collector at ~p", [global:safe_whereis_name(?COLLECTOR)]),
+  %%global:send(?COLLECTOR, {internal, {kill, self()}}),
+  %%?WAIT_FOR_MESSAGE({ok, shutting_down})
+  gen_server:call(?COLLECTOR, stop).
 
-do_start(StartupMode, Options) ->
-  apply(proc_lib, StartupMode, [?MODULE,init_it,[self()|Options]).
+%%init_it(Parent, Options) ->
+%%  case catch( global:register_name(?COLLECTOR, self()) ) of
+%%    yes ->
+%%      proc_lib:init_ack(Parent, {ok, self()}),
+%%      loop(#state{ parent=Parent, options=Options });
+%%    no ->
+%%      proc_lib:init_ack(Parent, {error, registration_failed}),
+%%      exit(registration_failed)
+%%  end.
 
-init_it([Parent|Options]) ->
-  proc_lib:init_ack(Parent, {ok, self()}),
-  loop(Options).
+%% ------------------------------------------------------------------
+%% gen_server Function Definitions
+%% ------------------------------------------------------------------
 
-loop(State) ->
-  receive
-    X -> ok
-  end,
-  loop(State).
+init(Options) ->
+  {ok, #state{ options=Options }}.
+
+handle_call(whassup, _From, State) ->
+  {reply, fuck_you, State};
+handle_call(stop, _From, State) ->
+  throw(fuck),
+  {stop, normal, State};
+handle_call(_Request, _From, State) ->
+  {noreply, ok, State}.
+
+handle_cast(_Msg, State) ->
+  {noreply, State}.
+
+handle_info(_Info, State) ->
+  {noreply, State}.
+
+terminate(_Reason, _State) ->
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+%% ------------------------------------------------------------------
+%% Internal Function Definitions
+%% ------------------------------------------------------------------
+
+%% @hidden
+gen_server_options(Options) ->
+  lists:filter(fun({debug, _}) -> true;
+                  ({timeout, _}) -> true;
+                  ({spawn_opt, _}) -> true;
+                  (_) -> false
+               end, Options).

@@ -81,13 +81,13 @@ start_link() ->
 %% @doc Starts the server with the supplied configuration.
 %%
 start_link(Options) ->
-  gen_server:start_link({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
+  gen_server:start({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
   
 stop() ->
   %%?PDEBUG("sending kill signal to collector at ~p", [global:safe_whereis_name(?COLLECTOR)]),
   %%global:send(?COLLECTOR, {internal, {kill, self()}}),
   %%?WAIT_FOR_MESSAGE({ok, shutting_down})
-  gen_server:call(?COLLECTOR, stop).
+  gen_server:call({global, ?COLLECTOR}, stop).
 
 %%init_it(Parent, Options) ->
 %%  case catch( global:register_name(?COLLECTOR, self()) ) of

@@ -40,33 +40,30 @@ all() -> ?CT_REGISTER_TESTS(?MODULE).
 init_per_suite(Config) ->
   %%?PDEBUG("starting ~p~n", [?GEN_SERVER]),
   {ok, Server} = ?COLLECTOR:start_link(),
-  ?PDEBUG("collector startup: ~p~n", [Server]),
-  ?PDEBUG("collector registered against ~p", [global:whereis_name(?COLLECTOR)]),
-  ?PDEBUG("in init - is server alive? ~p~n", [erlang:is_process_alive(Server)]),
-  [{server, Server}|Config].
-  %%Pid = spawn(?MODULE, loop, []),
-  %%{ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  ?PDEBUG("in init - collector ~p has started...~n", [Server]),
+  ?PDEBUG("in init - collector globally registered against ~p", [global:whereis_name(?COLLECTOR)]),
+  ?PDEBUG("in init - is server ~p alive? ~p~n", [Server, erlang:is_process_alive(Server)]),
+  {ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  [{slave, Slave}|[{server, Server}|Config]].
+  %%Pid = spawn(?MODULE, loop, []),  
   %%global:register_name(?COLLECTOR, Pid),
   %%?PDEBUG("collector registered against ~p", [global:whereis_name(?COLLECTOR)]),
   %%global:sync(),
   %%rpc:call(Slave, global, sync, []),
   %%[{slave, Slave}|Config].
 
-end_per_suite(Config) ->
+end_per_suite(_Config) ->
   %%?PDEBUG("stopping [~p]~n", [catch( ?COLLECTOR:stop() )]),
   %%Slave = ?config(slave, Config),
   %%slave:stop(Slave),
   ok.
 
 collector_is_singleton_process(Config) ->
-  Server = ?config(server, Config),
-  ?PDEBUG("in test - collector registered against ~p~n", [global:whereis_name(?COLLECTOR)]),
-  ?PDEBUG("in test - is server alive? ~p~n", [erlang:is_process_alive(Server)]),
-  ?PDEBUG("server ~p status: ~p~n", [Server, gen_server:call(?COLLECTOR, whassup)]),
-  %% erlang:is_process_alive(Server)]),
-  
-  %%Slave = ?config(slave, Config),
-  {ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  %%?PDEBUG("in test - collector globally registered against ~p~n", [global:whereis_name(?COLLECTOR)]),
+  %%?PDEBUG("in test - is server ~p alive? ~p~n", [Server, erlang:is_process_alive(Server)]),
+  %%?PDEBUG("server ~p status: ~p~n", [Server, gen_server:call({global, ?COLLECTOR}, whassup)]),
+  Slave = ?config(slave, Config),
+  rpc:call(Slave, global, sync, []),
   Location = global:whereis_name(?COLLECTOR),
   RemoteLocation = rpc:call(Slave, global, whereis_name, [?COLLECTOR]),
   ?PDEBUG("comparing ~p to ~p...~n", [RemoteLocation, Location]),

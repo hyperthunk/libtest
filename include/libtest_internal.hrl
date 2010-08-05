@@ -27,4 +27,4 @@
 %% -----------------------------------------------------------------------------
 
 -define(COLLECTOR, 'libtest.collector').
--define(GEN_SERVER, gen_server).
+-define(GEN_SERVER, 'libtest.gen_server2').

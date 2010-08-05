@@ -39,23 +39,24 @@ all() -> ?CT_REGISTER_TESTS(?MODULE).
 
 init_per_suite(Config) ->
   %%?PDEBUG("starting ~p~n", [?GEN_SERVER]),
-  {ok, Server} = ?COLLECTOR:start_link(),
+  {ok, Server} = ?COLLECTOR:start(),
   ?PDEBUG("in init - collector ~p has started...~n", [Server]),
   ?PDEBUG("in init - collector globally registered against ~p", [global:whereis_name(?COLLECTOR)]),
   ?PDEBUG("in init - is server ~p alive? ~p~n", [Server, erlang:is_process_alive(Server)]),
   {ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  rpc:call(Slave, global, sync, []),
   [{slave, Slave}|[{server, Server}|Config]].
-  %%Pid = spawn(?MODULE, loop, []),  
+  %%Pid = spawn(?MODULE, loop, []),
   %%global:register_name(?COLLECTOR, Pid),
   %%?PDEBUG("collector registered against ~p", [global:whereis_name(?COLLECTOR)]),
   %%global:sync(),
   %%rpc:call(Slave, global, sync, []),
   %%[{slave, Slave}|Config].
 
-end_per_suite(_Config) ->
-  %%?PDEBUG("stopping [~p]~n", [catch( ?COLLECTOR:stop() )]),
-  %%Slave = ?config(slave, Config),
-  %%slave:stop(Slave),
+end_per_suite(Config) ->
+  ?PDEBUG("stopping [~p]~n", [catch( ?COLLECTOR:stop() )]),
+  Slave = ?config(slave, Config),
+  slave:stop(Slave),
   ok.
 
 collector_is_singleton_process(Config) ->
@@ -63,8 +64,12 @@ collector_is_singleton_process(Config) ->
   %%?PDEBUG("in test - is server ~p alive? ~p~n", [Server, erlang:is_process_alive(Server)]),
   %%?PDEBUG("server ~p status: ~p~n", [Server, gen_server:call({global, ?COLLECTOR}, whassup)]),
   Slave = ?config(slave, Config),
-  rpc:call(Slave, global, sync, []),
   Location = global:whereis_name(?COLLECTOR),
   RemoteLocation = rpc:call(Slave, global, whereis_name, [?COLLECTOR]),
   ?PDEBUG("comparing ~p to ~p...~n", [RemoteLocation, Location]),
   ?assertThat(RemoteLocation, is(equal_to(Location))).
+
+notice_macro_maps_messages_to_collector(Config) ->
+  Slave = ?config(slave, Config),
+  rpc:call(Slave, libtest_collector_support, raise_notice_event, [{hello, 12345}]),
+  ?assertThat(?COLLECTOR, recieved_message({hello, 12345})).

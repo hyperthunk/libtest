@@ -40,17 +40,25 @@
 -import(ets). %% to keep the cover tool happy
 -import(error_logger).
 -import(lists).
--import(gen_server).
+-import(?GEN_SERVER).
 
--behaviour(gen_server).
+-behaviour(?GEN_SERVER).
 
 %% ------------------------------------------------------------------
-%% API Function Exports
+%% Server API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/0
+-export([start/0
+        ,start/1
+        ,start_link/0
         ,start_link/1
         ,stop/0]).
+
+%% ------------------------------------------------------------------
+%% Collection API Function Exports
+%% ------------------------------------------------------------------
+
+-export([get_received_messages/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -68,36 +76,52 @@
 }).
 
 %% -----------------------------------------------------------------------------
-%%      Public API
+%%      Server API
 %% -----------------------------------------------------------------------------
 
 %%
 %% @doc Starts the server with default configuration values.
 %%
-start_link() ->
-  start_link([]).
-  
+start() ->
+  start([]).
+
 %%
 %% @doc Starts the server with the supplied configuration.
 %%
-start_link(Options) ->
-  gen_server:start({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
-  
-stop() ->
-  %%?PDEBUG("sending kill signal to collector at ~p", [global:safe_whereis_name(?COLLECTOR)]),
-  %%global:send(?COLLECTOR, {internal, {kill, self()}}),
-  %%?WAIT_FOR_MESSAGE({ok, shutting_down})
-  gen_server:call({global, ?COLLECTOR}, stop).
+start(Options) ->
+  ?GEN_SERVER:start({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
 
-%%init_it(Parent, Options) ->
-%%  case catch( global:register_name(?COLLECTOR, self()) ) of
-%%    yes ->
-%%      proc_lib:init_ack(Parent, {ok, self()}),
-%%      loop(#state{ parent=Parent, options=Options });
-%%    no ->
-%%      proc_lib:init_ack(Parent, {error, registration_failed}),
-%%      exit(registration_failed)
-%%  end.
+%%
+%% @doc Starts the server (with default configuration values) as part of a supervision tree.
+%%
+start_link() ->
+  start_link([]).
+
+%%
+%% @doc Starts the server with the supplied configuration as part of a supervision tree.
+%%
+start_link(Options) ->
+  ?GEN_SERVER:start_link({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
+
+%%
+%% @doc Stops the registered instance of this server.
+%%
+stop() ->
+  ?GEN_SERVER:call({global, ?COLLECTOR}, stop).
+
+%% -----------------------------------------------------------------------------
+%%      Collector API
+%% -----------------------------------------------------------------------------
+
+%%
+%% @doc
+%% get_received_messages() -> [term()]
+%% Gets a list of all received messages.
+%%
+-spec(get_received_messages/0 :: () -> [term()]).
+get_received_messages() ->
+  #state{} = ?GEN_SERVER:call({global, ?COLLECTOR}, {?COLLECTOR, retrieve_state}),
+  [].
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -106,10 +130,9 @@ stop() ->
 init(Options) ->
   {ok, #state{ options=Options }}.
 
-handle_call(whassup, _From, State) ->
-  {reply, fuck_you, State};
+handle_call({?COLLECTOR, retrieve_state}, _From, State) ->
+  {reply, State, State};
 handle_call(stop, _From, State) ->
-  throw(fuck),
   {stop, normal, State};
 handle_call(_Request, _From, State) ->
   {noreply, ok, State}.

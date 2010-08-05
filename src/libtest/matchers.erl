@@ -1,6 +1,6 @@
 %% -----------------------------------------------------------------------------
 %%
-%% Libtest.
+%% Libtest Matchers (Library Module)
 %%
 %% Copyright (c) 2010 Tim Watson (watson.timothy@gmail.com)
 %%
@@ -24,7 +24,42 @@
 %% -----------------------------------------------------------------------------
 %% @author Tim Watson <watson.timothy@gmail.com>
 %% @copyright 2010 Tim Watson.
-%% @doc Libtest API - provides high level API to underlying libtest features.
+%% @doc libtest.matchers
+%%
+%% Custom Hamcrest Matchers for use with libtest
 %% -----------------------------------------------------------------------------
 
--module(libtest).
+-module(libtest.matchers).
+-author('Tim Watson <watson.timothy@gmail.com>').
+
+-include("libtest.hrl").
+-include("libtest_internal.hrl").
+-include_lib("hamcrest/include/hamcrest.hrl").
+
+-import(ets). %% to keep the cover tool happy
+-import(lists).
+-import(io_lib).
+
+-export([recieved_message/1]).
+
+%%
+%% @doc Creates a matcher for messages received, using the was_received/1
+%%      function as a match fun.
+%%
+-spec(recieved_message/1 :: (term()) -> #'hamcrest.matchspec'{}).
+recieved_message(Message) ->
+  #'hamcrest.matchspec'{
+    matcher     = was_received(Message),
+    desc        = fun(Ref) ->
+                    Desc = "Expected ~p to have received message ~p.",
+                    lists:flatten(io_lib:format(Desc, [Ref, Message]))
+                  end,
+    expected    = false
+  }.
+
+was_received(Ref) when is_pid(Ref) ->
+  false;
+was_received(Message) ->
+  fun(Ref) ->
+    ?COLLECTOR:was_received(Ref, Message)
+  end.

@@ -40,6 +40,7 @@
 -import(ets). %% to keep the cover tool happy
 -import(error_logger).
 -import(lists).
+-import(io).
 -import(?GEN_SERVER).
 
 -behaviour(?GEN_SERVER).
@@ -58,7 +59,7 @@
 %% Collection API Function Exports
 %% ------------------------------------------------------------------
 
--export([get_received_messages/1]).
+-export([get_observed_messages/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -72,7 +73,8 @@
         ,code_change/3]).
 
 -record(state, {
-  options   = []          :: [term()]
+  options   = []          :: [term()],
+  observed  = []          :: [term()]
 }).
 
 %% -----------------------------------------------------------------------------
@@ -118,10 +120,10 @@ stop() ->
 %% get_received_messages() -> [term()]
 %% Gets a list of all received messages.
 %%
--spec(get_received_messages/0 :: () -> [term()]).
-get_received_messages() ->
-  #state{} = ?GEN_SERVER:call({global, ?COLLECTOR}, {?COLLECTOR, retrieve_state}),
-  [].
+-spec(get_observed_messages/0 :: () -> [term()]).
+get_observed_messages() ->
+  #state{ observed=Obs } = ?GEN_SERVER:call({global, ?COLLECTOR}, {?COLLECTOR, retrieve_state}),
+  Obs.
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -134,14 +136,15 @@ handle_call({?COLLECTOR, retrieve_state}, _From, State) ->
   {reply, State, State};
 handle_call(stop, _From, State) ->
   {stop, normal, State};
-handle_call(_Request, _From, State) ->
-  {noreply, ok, State}.
+handle_call(Request, From, State) ->
+  io:format("got request ~p from ~p~n", [Request, From]),
+  {reply, ok, State}.
 
 handle_cast(_Msg, State) ->
   {noreply, State}.
 
-handle_info(_Info, State) ->
-  {noreply, State}.
+handle_info(Info, #state{ observed=Obs }=State) ->
+  {noreply, State#state{ observed=[Info|Obs] }}.
 
 terminate(_Reason, _State) ->
   ok.

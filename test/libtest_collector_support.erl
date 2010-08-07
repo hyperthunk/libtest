@@ -27,7 +27,11 @@
 %% -----------------------------------------------------------------------------
 
 -module(libtest_collector_support).
+
+-include("../include/libtest.hrl").
+-include("../include/libtest_internal.hrl").
+
 -compile(export_all).
 
-say_hello() ->
-  ct:pal("hello!!!").
+raise_notice_event() ->
+  ?OBSERVE({hello, 12345}).

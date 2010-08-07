@@ -39,27 +39,33 @@
 -import(ets). %% to keep the cover tool happy
 -import(lists).
 -import(io_lib).
+-import(ct).
 
--export([recieved_message/1]).
+-export([observed_message/1
+        ,was_received/1]).
 
 %%
 %% @doc Creates a matcher for messages received, using the was_received/1
 %%      function as a match fun.
 %%
--spec(recieved_message/1 :: (term()) -> #'hamcrest.matchspec'{}).
-recieved_message(Message) ->
+-spec(observed_message/1 :: (term()) -> #'hamcrest.matchspec'{}).
+observed_message(Message) ->
   #'hamcrest.matchspec'{
     matcher     = was_received(Message),
-    desc        = fun(Ref) ->
-                    Desc = "Expected ~p to have received message ~p.",
-                    lists:flatten(io_lib:format(Desc, [Ref, Message]))
+    desc        = fun(Expected, Actual) ->
+                    Desc = "Expected to have received message ~p, but something went wrong: ~s.",
+                    lists:flatten(io_lib:format(Desc, [Expected, Actual]))
                   end,
-    expected    = false
+    expected    = Message
   }.
 
-was_received(Ref) when is_pid(Ref) ->
-  false;
+%%
+%% @doc Returns a function that evaluates whether (or not) the specified
+%%      Message has been received by the 'libtest.collector' at any time.
+%%
+-spec(was_received/1 :: (term()) -> fun((term()) -> true | false)).
 was_received(Message) ->
-  fun(Ref) ->
-    ?COLLECTOR:was_received(Ref, Message)
+  fun(_) ->
+    ct:pal("got ~p~n", [?COLLECTOR:get_observed_messages()]),
+    lists:member(Message, ?COLLECTOR:get_observed_messages())
   end.

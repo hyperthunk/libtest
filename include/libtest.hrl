@@ -41,6 +41,11 @@
   ct:pal("registering ~p~n", [All]),
   All).
 
+-define(OBSERVE(Term),
+  Pid = global:whereis_name('libtest.collector'),
+  Response = global:send('libtest.collector', {hello, 12345}),
+  {observed, {term, Term}, {collector, Pid}}).
+
 -define(WAIT_FOR_MESSAGE(Term),
   begin
     receive Term -> ok end

@@ -35,23 +35,22 @@
 -include("../include/libtest_internal.hrl").
 -compile(export_all).
 
+-import(libtest.matchers, [observed_message/1]).
+
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
 init_per_suite(Config) ->
-  %%?PDEBUG("starting ~p~n", [?GEN_SERVER]),
   {ok, Server} = ?COLLECTOR:start(),
   ?PDEBUG("in init - collector ~p has started...~n", [Server]),
   ?PDEBUG("in init - collector globally registered against ~p", [global:whereis_name(?COLLECTOR)]),
   ?PDEBUG("in init - is server ~p alive? ~p~n", [Server, erlang:is_process_alive(Server)]),
-  {ok, Slave} = slave:start(net_adm:localhost(), ?MODULE),
+  Base = ?config(data_dir, Config),
+  TestPath = re:replace(Base, filename:basename(Base) ++ "\/$", "", [{return,list}]),
+  BinPath = re:replace(TestPath, "\/test\/$", "\/ebin\/", [{return, list}]),
+  Args = " -pa " ++ TestPath ++ " -pa " ++ BinPath,
+  {ok, Slave} = slave:start(net_adm:localhost(), ?MODULE, Args),
   rpc:call(Slave, global, sync, []),
   [{slave, Slave}|[{server, Server}|Config]].
-  %%Pid = spawn(?MODULE, loop, []),
-  %%global:register_name(?COLLECTOR, Pid),
-  %%?PDEBUG("collector registered against ~p", [global:whereis_name(?COLLECTOR)]),
-  %%global:sync(),
-  %%rpc:call(Slave, global, sync, []),
-  %%[{slave, Slave}|Config].
 
 end_per_suite(Config) ->
   ?PDEBUG("stopping [~p]~n", [catch( ?COLLECTOR:stop() )]),
@@ -60,16 +59,14 @@ end_per_suite(Config) ->
   ok.
 
 collector_is_singleton_process(Config) ->
-  %%?PDEBUG("in test - collector globally registered against ~p~n", [global:whereis_name(?COLLECTOR)]),
-  %%?PDEBUG("in test - is server ~p alive? ~p~n", [Server, erlang:is_process_alive(Server)]),
-  %%?PDEBUG("server ~p status: ~p~n", [Server, gen_server:call({global, ?COLLECTOR}, whassup)]),
   Slave = ?config(slave, Config),
   Location = global:whereis_name(?COLLECTOR),
   RemoteLocation = rpc:call(Slave, global, whereis_name, [?COLLECTOR]),
   ?PDEBUG("comparing ~p to ~p...~n", [RemoteLocation, Location]),
   ?assertThat(RemoteLocation, is(equal_to(Location))).
 
-notice_macro_maps_messages_to_collector(Config) ->
+observe_macro_maps_messages_to_collector(Config) ->
   Slave = ?config(slave, Config),
-  rpc:call(Slave, libtest_collector_support, raise_notice_event, [{hello, 12345}]),
-  ?assertThat(?COLLECTOR, recieved_message({hello, 12345})).
+  X = rpc:call(Slave, libtest_collector_support, raise_notice_event, []),
+  ct:pal("Slave node returned ~p~n", [X]),
+  ?assertThat(?COLLECTOR, observed_message({hello, 12345})).

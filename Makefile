@@ -38,7 +38,7 @@ info:
 	$(info erl program located at $(ERL))
 	$(info ERL_LIBS set to $(ERL_LIBS))
 
-precompile: 
+precompile:
 	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE check-deps skip_deps=true)
 
 compile: precompile
@@ -51,4 +51,6 @@ edoc:
 	@$(ERL) -noshell -run edoc_run application '$(APP)' '"."' '[{preprocess, true},{includes, ["."]}]'
 
 test: compile
+	@(cp src/*.erl ebin/)
+	@(cp src/libtest/*.erl ebin/libtest/)
 	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE ct skip_deps=true)

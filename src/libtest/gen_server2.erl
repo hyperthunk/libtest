@@ -126,6 +126,7 @@
 %% Internal exports
 -export([init_it/6, print_event/3]).
 
+-import(ets). %% to keep the cover tool happy
 -import(error_logger, [format/2]).
 -import(gen).
 -import(global).

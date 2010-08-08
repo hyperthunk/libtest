@@ -46,14 +46,16 @@
 
 %%
 %% @doc Creates a matcher for messages received, using the was_received/1
-%%      function as a match fun.
+%%      function as a match fun. If you pass assert_that (or the macro equivalent)
+%%      a process id, then the matcher will only evaluate to true if the supplied
+%%      pid observed the specified message at least once.
 %%
 -spec(observed_message/1 :: (term()) -> #'hamcrest.matchspec'{}).
 observed_message(Message) ->
   #'hamcrest.matchspec'{
     matcher     = was_received(Message),
     desc        = fun(Expected, Actual) ->
-                    Desc = "Expected to have received message ~p, but something went wrong: ~s.",
+                    Desc = "Expected to have received message ~p, but something went wrong: ~p.",
                     lists:flatten(io_lib:format(Desc, [Expected, Actual]))
                   end,
     expected    = Message
@@ -65,7 +67,26 @@ observed_message(Message) ->
 %%
 -spec(was_received/1 :: (term()) -> fun((term()) -> true | false)).
 was_received(Message) ->
-  fun(_) ->
-    ct:pal("got ~p~n", [?COLLECTOR:get_observed_messages()]),
-    lists:member(Message, ?COLLECTOR:get_observed_messages())
+  fun(Ref) ->
+    case check_observed_messages(Ref, Message) of
+      [_H|_] -> true;
+      [] -> false
+    end
   end.
+
+check_observed_messages('libtest.collector', Message) ->
+  P = fun(Msg) ->
+    case Msg of
+      #'libtest.observation'{ term=Message } -> true;
+      _ -> Msg == Message
+    end
+  end,
+  lists:filter(P, ?COLLECTOR:get_observed_messages());
+check_observed_messages(Pid, Message) when is_pid(Pid) ->
+  P = fun(Msg) ->
+    case Msg of
+      #'libtest.observation'{ pid=Pid, term=Message} -> true;
+      _ -> false
+    end
+  end,
+  lists:filter(P, ?COLLECTOR:get_observed_messages()).

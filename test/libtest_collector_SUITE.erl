@@ -70,3 +70,10 @@ observe_macro_maps_messages_to_collector(Config) ->
   X = rpc:call(Slave, libtest_collector_support, raise_notice_event, []),
   ct:pal("Slave node returned ~p~n", [X]),
   ?assertThat(?COLLECTOR, observed_message({hello, 12345})).
+
+observed_messages_can_be_tagged_and_verified(Config) ->
+  Slave = ?config(slave, Config),
+  Pid = rpc:call(Slave, libtest_collector_support, start_observer_process, []),
+  rpc:call(Slave, libtest_collector_support, kick_observer_processs, [{message, "hello"}]),
+  Teardown = fun() -> rpc:call(Slave, libtest_collector_support, kick_observer_processs, [shutdown]) end,
+  ?assertThat(Pid, observed_message({message, "hello"}), Teardown).

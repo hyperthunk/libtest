@@ -136,9 +136,8 @@ handle_call({?COLLECTOR, retrieve_state}, _From, State) ->
   {reply, State, State};
 handle_call(stop, _From, State) ->
   {stop, normal, State};
-handle_call(Request, From, State) ->
-  io:format("got request ~p from ~p~n", [Request, From]),
-  {reply, ok, State}.
+handle_call(_Request, _From, State) ->
+  {noreply, State}.
 
 handle_cast(_Msg, State) ->
   {noreply, State}.

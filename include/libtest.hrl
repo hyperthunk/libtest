@@ -41,10 +41,25 @@
   ct:pal("registering ~p~n", [All]),
   All).
 
+-record('libtest.observation', {
+  node    :: node(),
+  pid     :: pid(),
+  dest    :: atom() | pid(),
+  term    :: term()
+}).
+
 -define(OBSERVE(Term),
   Pid = global:whereis_name('libtest.collector'),
-  Response = global:send('libtest.collector', {hello, 12345}),
-  {observed, {term, Term}, {collector, Pid}}).
+  Record = #'libtest.observation'{ term=Term, pid=self(), node=node(), dest=Pid },
+  global:send('libtest.collector', Record),
+  Record).
+
+-define(OBSERVE_HERE(Timeout),
+  receive
+    X -> ?OBSERVE(X)
+  after Timeout
+    -> ok
+  end).
 
 -define(WAIT_FOR_MESSAGE(Term),
   begin

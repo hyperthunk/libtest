@@ -35,3 +35,19 @@
 
 raise_notice_event() ->
   ?OBSERVE({hello, 12345}).
+
+start_observer_process() ->
+  Pid = spawn(?MODULE, start_observer, []),
+  true = register(?MODULE, Pid),
+  Pid.
+
+kick_observer_processs(Term) ->
+  ?MODULE ! Term.
+
+start_observer() ->
+  Msg = ?OBSERVE_HERE(10000),
+  %case Msg of
+  %  {observed, {term, shutdown}, _} ->
+  %    exit(normal)
+  %end,
+  start_observer().

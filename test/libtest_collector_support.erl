@@ -55,7 +55,7 @@ start_observer_process_globally(Name) ->
 kick_global_process(Name, Term) ->
   global:send(Name, Term).
 
-kick_observer_processs(Term) ->
+kick_observer_process(Term) ->
   ?MODULE ! Term.
 
 start_observer() ->

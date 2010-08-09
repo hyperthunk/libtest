@@ -77,21 +77,21 @@ observe_macro_maps_messages_to_collector(Config) ->
 observed_messages_can_be_tagged_and_verified_by_pid(Config) ->
   Slave = ?config(slave, Config),
   Pid = rpc:call(Slave, libtest_collector_support, start_observer_process, []),
-  rpc:call(Slave, libtest_collector_support, kick_observer_processs, [{message, "hello"}]),
+  rpc:call(Slave, libtest_collector_support, kick_observer_process, [{message, "hello"}]),
   ?assertThat(Pid, observed_message({message, "hello"}), rpc_stop(Slave)).
 
 observed_messages_can_be_tagged_and_verified_by_name(_) ->
   Mod = libtest_collector_support,
   Mod:start_observer_process(),
   Msg = {message, "dunbar has fallen"},
-  Mod:kick_observer_processs(Msg),
-  ?assertThat(registered_name(Mod), observed_message(Msg), fun() -> Mod:kick_observer_processs(shutdown) end).
+  Mod:kick_observer_process(Msg),
+  ?assertThat(registered_name(Mod), observed_message(Msg), fun() -> Mod:kick_observer_process(shutdown) end).
 
 observed_messages_can_be_tagged_and_verified_by_remote_name(Config) ->
   Slave = ?config(slave, Config),
   Pid = rpc(Slave, start_observer_process, []),
   Msg = {message, "dunbar has fallen"},
-  rpc(Slave, kick_observer_processs, Msg),
+  rpc(Slave, kick_observer_process, Msg),
   ProcessName = libtest_collector_support,
   ?assertThat(registered_name(Slave, ProcessName), observed_message(Msg), rpc_stop(Slave)).
 
@@ -110,4 +110,4 @@ observed_messages_can_be_tagged_and_verified_by_sender(Config) ->
   Msg = {message, "lle mae'r cyfarfod?"},
   Mod ! {tagged_message, {sender, self()}, Msg},
   ?assertThat(registered_name(Mod), observed_message_from(self(), Msg),
-    fun() -> Mod:kick_observer_processs(shutdown) end).
+    fun() -> Mod:kick_observer_process(shutdown) end).

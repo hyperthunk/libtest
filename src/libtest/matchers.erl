@@ -52,7 +52,9 @@
 -export([registered_name/1
         ,registered_name/2
         ,observed_message/1
-        ,was_received/1]).
+        ,observed_message_from/2
+        ,was_received/1
+        ,was_received/2]).
 
 %%
 %% @doc returns an internal structure representing a query against a
@@ -70,6 +72,26 @@ registered_name(Term) when is_atom(Term) ->
 %%
 registered_name(Node, Term) when is_atom(Node) andalso is_atom(Term) ->
   #registration_query{ type=remote, context=Node, name=Term }.
+
+%%
+%% @doc Creates a matcher for messages received from the provided Sender, using the was_received/2
+%%      function as a match fun. If you pass assert_that (or the macro equivalent)
+%%      a process id, then the matcher will only evaluate to true if the supplied
+%%      pid observed the specified message at least once.
+%%
+-spec(observed_message_from/2 :: (pid(), term()) -> #'hamcrest.matchspec'{}).
+observed_message_from(Sender, Message) when is_pid(Sender) ->
+  #'hamcrest.matchspec'{
+    matcher     = was_received(Message, Sender),
+    desc        = fun(Expected, Actual) when is_list(Actual) ->
+                        Desc = "Expected to have received message ~p, but something went wrong: ~s.",
+                        lists:flatten(io_lib:format(Desc, [Expected, Actual]));
+                     (Expected, Actual) ->
+                        Desc = "Expected to have received message ~p, but something went wrong: ~p.",
+                        lists:flatten(io_lib:format(Desc, [Expected, Actual]))
+                  end,
+    expected    = Message
+  }.
 
 %%
 %% @doc Creates a matcher for messages received, using the was_received/1
@@ -104,25 +126,49 @@ was_received(Message) ->
     end
   end.
 
+%%
+%% @doc Returns a function that evaluates whether (or not) the specified
+%%      Message has been received by the 'libtest.collector' at any time.
+%%
+-spec(was_received/2 :: (term(), pid()) -> fun((term()) -> true | false)).
+was_received(Message, Sender) ->
+  fun(Ref) ->
+    case check_observed_messages(Ref, Message, Sender) of
+      [_H|_] -> true;
+      [] -> false
+    end
+  end.
+
 check_observed_messages(#registration_query{ type=global, name=Term }, Message) ->
-  check_observed_messages(global:whereis_name(Term), Message);
+  check_observed_messages(global:whereis_name(Term), Message, undefined);
 check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message) ->
-  check_observed_messages(rpc:call(Node, erlang, whereis, [Term]), Message);
+  check_observed_messages(rpc:call(Node, erlang, whereis, [Term]), Message, undefined);
 check_observed_messages(#registration_query{ type=local, name=Term }, Message) ->
-  check_observed_messages(whereis(Term), Message);
+  check_observed_messages(whereis(Term), Message, undefined);
 check_observed_messages('libtest.collector', Message) ->
+  check_observed_messages(undefined, Message, undefined);
+check_observed_messages(Pid, Message) when is_pid(Pid) ->
+  check_observed_messages(Pid, Message, undefined).
+
+check_observed_messages(#registration_query{ type=global, name=Term }, Message, Sender) ->
+  check_observed_messages(global:whereis_name(Term), Message, Sender);
+check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message, Sender) ->
+  check_observed_messages(rpc:call(Node, erlang, whereis, [Term]), Message, Sender);
+check_observed_messages(#registration_query{ type=local, name=Term }, Message, Sender) ->
+  check_observed_messages(whereis(Term), Message, Sender);
+check_observed_messages(Pid, Message, Sender) when is_pid(Pid) ->
   P = fun(Msg) ->
     case Msg of
-      #'libtest.observation'{ term=Message } -> true;
-      _ -> Msg == Message
+      #'libtest.observation'{ pid=Pid, term=Message, sender=Sender } -> true;
+      _ -> false
     end
   end,
   check_observed_messages(P);
-check_observed_messages(Pid, Message) when is_pid(Pid) ->
+check_observed_messages(_Ref, Message, Sender) ->
   P = fun(Msg) ->
     case Msg of
-      #'libtest.observation'{ pid=Pid, term=Message} -> true;
-      _ -> false
+      #'libtest.observation'{ term=Message, sender=Sender } -> true;
+      _ -> Msg == Message
     end
   end,
   check_observed_messages(P).

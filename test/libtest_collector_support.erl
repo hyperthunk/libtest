@@ -41,6 +41,11 @@ start_observer_process() ->
   true = register(?MODULE, Pid),
   Pid.
 
+start_tagged_process() ->
+  Pid = spawn(?MODULE, start_observer2, []),
+  true = register(?MODULE, Pid),
+  Pid.
+
 start_observer_process_globally(Name) ->
   Pid = spawn(?MODULE, start_observer, []),
   yes = global:register_name(Name, Pid),
@@ -60,6 +65,25 @@ start_observer() ->
     _        -> ok
   end,
   start_observer().
+
+start_observer2() ->
+  receive
+    shutdown ->
+      exit(normal);
+    {tagged_message, {sender, Sender}, Msg} ->
+      Pid = global:whereis_name('libtest.collector'),
+      Record = #'libtest.observation'{
+        term=Msg,
+        pid=self(),
+        node=node(),
+        dest=Pid,
+        sender = Sender
+      },
+      global:send('libtest.collector', Record)
+  after 10000
+    -> ok
+  end,
+  start_observer2().
 
 rpc(Slave, Method, Args) when is_list(Args) ->
   rpc:call(Slave, ?MODULE, Method, Args);

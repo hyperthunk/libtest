@@ -35,7 +35,11 @@
 -include("../include/libtest_internal.hrl").
 -compile(export_all).
 
--import(libtest.matchers, [observed_message/1, registered_name/1, registered_name/2]).
+-import(libtest.matchers, [
+  observed_message/1,
+  observed_message_from/2,
+  registered_name/1,
+  registered_name/2]).
 -import(libtest_collector_support, [rpc_stop/1, rpc/3]).
 
 all() -> ?CT_REGISTER_TESTS(?MODULE).
@@ -99,3 +103,11 @@ observed_messages_can_be_tagged_and_verified_by_global_name(Config) ->
   global:sync(),
   ProcessName = libtest_collector_support,
   ?assertThat(registered_name({global, ?MODULE}), observed_message(Msg), rpc_stop(Slave)).
+
+observed_messages_can_be_tagged_and_verified_by_sender(Config) ->
+  Mod = libtest_collector_support,
+  Mod:start_tagged_process(),
+  Msg = {message, "lle mae'r cyfarfod?"},
+  Mod ! {tagged_message, {sender, self()}, Msg},
+  ?assertThat(registered_name(Mod), observed_message_from(self(), Msg),
+    fun() -> Mod:kick_observer_processs(shutdown) end).

@@ -45,7 +45,8 @@
   node    :: node(),
   pid     :: pid(),
   dest    :: atom() | pid(),
-  term    :: term()
+  term    :: term(),
+  sender  :: pid()
 }).
 
 -define(OBSERVE(Term),

@@ -12,5 +12,5 @@ More documentation to follow. If you're brave enough to use (this is pre-alpha) 
 
 ### Links
 
-Issues/Bugs: http://nebularis.lighthouseapp.com/projects/57524-libtest
-Iteration planning: http://www.pivotaltracker.com/projects/105408
+* Issues/Bugs: http://nebularis.lighthouseapp.com/projects/57524-libtest
+* Iteration planning: http://www.pivotaltracker.com/projects/105408

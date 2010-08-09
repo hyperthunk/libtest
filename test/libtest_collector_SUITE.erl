@@ -36,7 +36,7 @@
 -compile(export_all).
 
 -import(libtest.matchers, [observed_message/1, registered_name/1, registered_name/2]).
--import(libtest_collector_support, [rpc_stop/1]).
+-import(libtest_collector_support, [rpc_stop/1, rpc/3]).
 
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
@@ -85,8 +85,17 @@ observed_messages_can_be_tagged_and_verified_by_name(_) ->
 
 observed_messages_can_be_tagged_and_verified_by_remote_name(Config) ->
   Slave = ?config(slave, Config),
-  ProcessName = libtest_collector_support,
-  Pid = rpc:call(Slave, ProcessName, start_observer_process, []),
+  Pid = rpc(Slave, start_observer_process, []),
   Msg = {message, "dunbar has fallen"},
-  rpc:call(Slave, ProcessName, kick_observer_processs, [Msg]),
+  rpc(Slave, kick_observer_processs, Msg),
+  ProcessName = libtest_collector_support,
   ?assertThat(registered_name(Slave, ProcessName), observed_message(Msg), rpc_stop(Slave)).
+
+observed_messages_can_be_tagged_and_verified_by_global_name(Config) ->
+  Slave = ?config(slave, Config),
+  Pid = rpc(Slave, start_observer_process_globally, ?MODULE),
+  Msg = {message, "na fineachan gaidhealach"},
+  rpc(Slave, kick_global_process, [?MODULE, Msg]),
+  global:sync(),
+  ProcessName = libtest_collector_support,
+  ?assertThat(registered_name({global, ?MODULE}), observed_message(Msg), rpc_stop(Slave)).

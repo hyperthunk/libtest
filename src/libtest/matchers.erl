@@ -40,6 +40,7 @@
 -import(lists).
 -import(io_lib).
 -import(rpc).
+-import(global).
 -import(ct).
 
 -record(registration_query, {
@@ -55,8 +56,10 @@
 
 %%
 %% @doc returns an internal structure representing a query against a
-%%      name assumed as registered locally as Term.
+%%      name assumed as registered globally or locally as Term.
 %%
+registered_name({global, Term}) when is_atom(Term) ->
+  #registration_query{ type=global, context=global, name=Term };
 registered_name(Term) when is_atom(Term) ->
   #registration_query{ type=local, context=node(), name=Term }.
 
@@ -101,6 +104,12 @@ was_received(Message) ->
     end
   end.
 
+check_observed_messages(#registration_query{ type=global, name=Term }, Message) ->
+  check_observed_messages(global:whereis_name(Term), Message);
+check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message) ->
+  check_observed_messages(rpc:call(Node, erlang, whereis, [Term]), Message);
+check_observed_messages(#registration_query{ type=local, name=Term }, Message) ->
+  check_observed_messages(whereis(Term), Message);
 check_observed_messages('libtest.collector', Message) ->
   P = fun(Msg) ->
     case Msg of
@@ -116,13 +125,7 @@ check_observed_messages(Pid, Message) when is_pid(Pid) ->
       _ -> false
     end
   end,
-  check_observed_messages(P);
-check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message) ->
-  Pid = rpc:call(Node, erlang, whereis, [Term]),
-  check_observed_messages(Pid, Message);
-check_observed_messages(#registration_query{ type=local, name=Term }, Message) ->
-  Pid = whereis(Term),
-  check_observed_messages(Pid, Message).
+  check_observed_messages(P).
 
 check_observed_messages(P) ->
   lists:filter(P, ?COLLECTOR:get_observed_messages()).

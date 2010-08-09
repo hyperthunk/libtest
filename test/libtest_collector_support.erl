@@ -41,6 +41,15 @@ start_observer_process() ->
   true = register(?MODULE, Pid),
   Pid.
 
+start_observer_process_globally(Name) ->
+  Pid = spawn(?MODULE, start_observer, []),
+  yes = global:register_name(Name, Pid),
+  global:sync(),
+  global:whereis_name(Name).
+
+kick_global_process(Name, Term) ->
+  global:send(Name, Term).
+
 kick_observer_processs(Term) ->
   ?MODULE ! Term.
 
@@ -51,6 +60,11 @@ start_observer() ->
     _        -> ok
   end,
   start_observer().
+
+rpc(Slave, Method, Args) when is_list(Args) ->
+  rpc:call(Slave, ?MODULE, Method, Args);
+rpc(Slave, Method, Args) ->
+  rpc:call(Slave, ?MODULE, Method, [Args]).
 
 rpc_stop(Slave) ->
   Self = ?MODULE,

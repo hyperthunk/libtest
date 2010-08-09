@@ -44,14 +44,13 @@
 -record('libtest.observation', {
   node    :: node(),
   pid     :: pid(),
-  dest    :: atom() | pid(),
   term    :: term(),
-  sender  :: pid()
+  sender  :: pid(),
+  tag     :: term()
 }).
 
 -define(OBSERVE(Term),
-  Pid = global:whereis_name('libtest.collector'),
-  Record = #'libtest.observation'{ term=Term, pid=self(), node=node(), dest=Pid },
+  Record = #'libtest.observation'{ term=Term, pid=self(), node=node() },
   global:send('libtest.collector', Record),
   Record).
 
@@ -59,7 +58,7 @@
   receive
     X -> ?OBSERVE(X), X
   after Timeout
-    -> ok
+    -> timeout
   end).
 
 -define(WAIT_FOR_MESSAGE(Term),

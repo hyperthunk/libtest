@@ -76,7 +76,6 @@ start_observer2() ->
         term=Msg,
         pid=self(),
         node=node(),
-        dest=Pid,
         sender = Sender
       },
       global:send('libtest.collector', Record)

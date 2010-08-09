@@ -44,17 +44,20 @@
 -import(ct).
 
 -record(registration_query, {
-  type    = local       :: term(),
-  name    = undefined   :: term(),
-  context = undefined   :: term()
+  type      = local       :: local | global | remote,
+  name      = undefined   :: term(),
+  context   = undefined   :: term(),
+  category  = undefined   :: term()
 }).
 
 -export([registered_name/1
         ,registered_name/2
         ,observed_message/1
         ,observed_message_from/2
-        ,was_received/1
-        ,was_received/2]).
+        ,was_received/2
+        ,was_received/3
+        ,categorises/2
+        ,as/1]).
 
 %%
 %% @doc returns an internal structure representing a query against a
@@ -65,13 +68,24 @@ registered_name({global, Term}) when is_atom(Term) ->
 registered_name(Term) when is_atom(Term) ->
   #registration_query{ type=local, context=node(), name=Term }.
 
-
 %%
 %% @doc returns an internal structure representing a query against a
 %%      name assumed as registered remotely as Term on Node
 %%
 registered_name(Node, Term) when is_atom(Node) andalso is_atom(Term) ->
   #registration_query{ type=remote, context=Node, name=Term }.
+
+%%
+%% @doc creates a matcher that checks the category of received observations.
+%%
+categorises(#'hamcrest.matchspec'{ expected={Message, {from, Sender}} }=Matcher, Category) ->
+  Matcher#'hamcrest.matchspec'{ matcher=was_received(Message, Sender, Category) };
+categorises(#'hamcrest.matchspec'{ expected=Message }=Matcher, Category) ->
+  Matcher#'hamcrest.matchspec'{ matcher=was_received(Message, Category) }.
+
+%% @doc this is the default identity function - use as syntactic sugar for writing matchers
+as(Category) ->
+  Category.
 
 %%
 %% @doc Creates a matcher for messages received from the provided Sender, using the was_received/2
@@ -82,7 +96,7 @@ registered_name(Node, Term) when is_atom(Node) andalso is_atom(Term) ->
 -spec(observed_message_from/2 :: (pid(), term()) -> #'hamcrest.matchspec'{}).
 observed_message_from(Sender, Message) when is_pid(Sender) ->
   #'hamcrest.matchspec'{
-    matcher     = was_received(Message, Sender),
+    matcher     = was_received(Message, Sender, undefined),
     desc        = fun(Expected, Actual) when is_list(Actual) ->
                         Desc = "Expected to have received message ~p, but something went wrong: ~s.",
                         lists:flatten(io_lib:format(Desc, [Expected, Actual]));
@@ -90,7 +104,7 @@ observed_message_from(Sender, Message) when is_pid(Sender) ->
                         Desc = "Expected to have received message ~p, but something went wrong: ~p.",
                         lists:flatten(io_lib:format(Desc, [Expected, Actual]))
                   end,
-    expected    = Message
+    expected    = {Message, {from, Sender}}
   }.
 
 %%
@@ -102,7 +116,7 @@ observed_message_from(Sender, Message) when is_pid(Sender) ->
 -spec(observed_message/1 :: (term()) -> #'hamcrest.matchspec'{}).
 observed_message(Message) ->
   #'hamcrest.matchspec'{
-    matcher     = was_received(Message),
+    matcher     = was_received(Message, undefined),
     desc        = fun(Expected, Actual) when is_list(Actual) ->
                         Desc = "Expected to have received message ~p, but something went wrong: ~s.",
                         lists:flatten(io_lib:format(Desc, [Expected, Actual]));
@@ -117,11 +131,11 @@ observed_message(Message) ->
 %% @doc Returns a function that evaluates whether (or not) the specified
 %%      Message has been received by the 'libtest.collector' at any time.
 %%
--spec(was_received/1 :: (term()) -> fun((term()) -> true | false)).
-was_received(Message) ->
+-spec(was_received/2 :: (term(), term()) -> fun((term()) -> true | false)).
+was_received(Message, Tag) ->
   fun(Ref) ->
     case check_observed_messages(Ref, Message) of
-      [_H|_] -> true;
+      [#'libtest.observation'{ tag=Tag }|_] -> true;
       [] -> false
     end
   end.
@@ -130,11 +144,11 @@ was_received(Message) ->
 %% @doc Returns a function that evaluates whether (or not) the specified
 %%      Message has been received by the 'libtest.collector' at any time.
 %%
--spec(was_received/2 :: (term(), pid()) -> fun((term()) -> true | false)).
-was_received(Message, Sender) ->
+-spec(was_received/3 :: (term(), pid(), term()) -> fun((term()) -> true | false)).
+was_received(Message, Sender, Tag) ->
   fun(Ref) ->
     case check_observed_messages(Ref, Message, Sender) of
-      [_H|_] -> true;
+      [#'libtest.observation'{ tag=Tag }|_] -> true;
       [] -> false
     end
   end.

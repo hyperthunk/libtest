@@ -36,6 +36,8 @@
 -compile(export_all).
 
 -import(libtest.matchers, [
+  as/1,
+  categorises/2,
   observed_message/1,
   observed_message_from/2,
   registered_name/1,
@@ -73,6 +75,16 @@ observe_macro_maps_messages_to_collector(Config) ->
   Slave = ?config(slave, Config),
   X = rpc:call(Slave, libtest_collector_support, raise_notice_event, []),
   ?assertThat(?COLLECTOR, observed_message({hello, 12345})).
+
+observed_messages_can_be_tagged_and_verified(Config) ->
+  Record = #'libtest.observation'{
+    term={message, "woo hoo"},
+    pid=self(),
+    node=node(),
+    tag=category1
+  },
+  global:send('libtest.collector', Record),
+  ?assertThat(?COLLECTOR, categorises(observed_message({message, "woo hoo"}), as(category1))).
 
 observed_messages_can_be_tagged_and_verified_by_pid(Config) ->
   Slave = ?config(slave, Config),

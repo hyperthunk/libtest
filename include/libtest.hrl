@@ -56,7 +56,7 @@
 
 -define(OBSERVE_HERE(Timeout),
   receive
-    X -> ?OBSERVE(X)
+    X -> ?OBSERVE(X), X
   after Timeout
     -> ok
   end).

@@ -46,8 +46,14 @@ kick_observer_processs(Term) ->
 
 start_observer() ->
   Msg = ?OBSERVE_HERE(10000),
-  %case Msg of
-  %  {observed, {term, shutdown}, _} ->
-  %    exit(normal)
-  %end,
+  case Msg of
+    shutdown -> exit(normal);
+    _        -> ok
+  end,
   start_observer().
+
+rpc_stop(Slave) ->
+  Self = ?MODULE,
+  fun() ->
+    rpc:call(Slave, Self, kick_observer_processs, [shutdown])
+  end.

@@ -39,10 +39,25 @@
 -import(ets). %% to keep the cover tool happy
 -import(lists).
 -import(io_lib).
+-import(rpc).
 -import(ct).
 
--export([observed_message/1
+-record(registration_query, {
+  type    = local       :: term(),
+  name    = undefined   :: term(),
+  context = undefined   :: term()
+}).
+
+-export([registered_name/2
+        ,observed_message/1
         ,was_received/1]).
+
+%%
+%% @doc returns an internal structure representing a query against a
+%%      name assumed as registered remotely as Term on Node
+%%
+registered_name(Node, Term) when is_atom(Node) andalso is_atom(Term) ->
+  #registration_query{ type=remote, context=Node, name=Term }.
 
 %%
 %% @doc Creates a matcher for messages received, using the was_received/1
@@ -54,9 +69,12 @@
 observed_message(Message) ->
   #'hamcrest.matchspec'{
     matcher     = was_received(Message),
-    desc        = fun(Expected, Actual) ->
-                    Desc = "Expected to have received message ~p, but something went wrong: ~p.",
-                    lists:flatten(io_lib:format(Desc, [Expected, Actual]))
+    desc        = fun(Expected, Actual) when is_list(Actual) ->
+                        Desc = "Expected to have received message ~p, but something went wrong: ~s.",
+                        lists:flatten(io_lib:format(Desc, [Expected, Actual]));
+                     (Expected, Actual) ->
+                        Desc = "Expected to have received message ~p, but something went wrong: ~p.",
+                        lists:flatten(io_lib:format(Desc, [Expected, Actual]))
                   end,
     expected    = Message
   }.
@@ -83,6 +101,15 @@ check_observed_messages('libtest.collector', Message) ->
   end,
   lists:filter(P, ?COLLECTOR:get_observed_messages());
 check_observed_messages(Pid, Message) when is_pid(Pid) ->
+  P = fun(Msg) ->
+    case Msg of
+      #'libtest.observation'{ pid=Pid, term=Message} -> true;
+      _ -> false
+    end
+  end,
+  lists:filter(P, ?COLLECTOR:get_observed_messages());
+check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message) ->
+  Pid = rpc:call(Node, erlang, whereis, [Term]),
   P = fun(Msg) ->
     case Msg of
       #'libtest.observation'{ pid=Pid, term=Message} -> true;

@@ -35,7 +35,8 @@
 -include("../include/libtest_internal.hrl").
 -compile(export_all).
 
--import(libtest.matchers, [observed_message/1]).
+-import(libtest.matchers, [observed_message/1, registered_name/2]).
+-import(libtest_collector_support, [rpc_stop/1]).
 
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
@@ -62,18 +63,23 @@ collector_is_singleton_process(Config) ->
   Slave = ?config(slave, Config),
   Location = global:whereis_name(?COLLECTOR),
   RemoteLocation = rpc:call(Slave, global, whereis_name, [?COLLECTOR]),
-  ?PDEBUG("comparing ~p to ~p...~n", [RemoteLocation, Location]),
   ?assertThat(RemoteLocation, is(equal_to(Location))).
 
 observe_macro_maps_messages_to_collector(Config) ->
   Slave = ?config(slave, Config),
   X = rpc:call(Slave, libtest_collector_support, raise_notice_event, []),
-  ct:pal("Slave node returned ~p~n", [X]),
   ?assertThat(?COLLECTOR, observed_message({hello, 12345})).
 
-observed_messages_can_be_tagged_and_verified(Config) ->
+observed_messages_can_be_tagged_and_verified_by_pid(Config) ->
   Slave = ?config(slave, Config),
   Pid = rpc:call(Slave, libtest_collector_support, start_observer_process, []),
   rpc:call(Slave, libtest_collector_support, kick_observer_processs, [{message, "hello"}]),
-  Teardown = fun() -> rpc:call(Slave, libtest_collector_support, kick_observer_processs, [shutdown]) end,
-  ?assertThat(Pid, observed_message({message, "hello"}), Teardown).
+  ?assertThat(Pid, observed_message({message, "hello"}), rpc_stop(Slave)).
+
+observed_messages_can_be_tagged_and_verified_by_name(Config) ->
+  Slave = ?config(slave, Config),
+  ProcessName = libtest_collector_support,
+  Pid = rpc:call(Slave, ProcessName, start_observer_process, []),
+  Msg = {message, "dunbar has fallen"},
+  rpc:call(Slave, ProcessName, kick_observer_processs, [Msg]),
+  ?assertThat(registered_name(Slave, ProcessName), observed_message(Msg), rpc_stop(Slave)).

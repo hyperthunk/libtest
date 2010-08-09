@@ -48,9 +48,18 @@
   context = undefined   :: term()
 }).
 
--export([registered_name/2
+-export([registered_name/1
+        ,registered_name/2
         ,observed_message/1
         ,was_received/1]).
+
+%%
+%% @doc returns an internal structure representing a query against a
+%%      name assumed as registered locally as Term.
+%%
+registered_name(Term) when is_atom(Term) ->
+  #registration_query{ type=local, context=node(), name=Term }.
+
 
 %%
 %% @doc returns an internal structure representing a query against a
@@ -99,7 +108,7 @@ check_observed_messages('libtest.collector', Message) ->
       _ -> Msg == Message
     end
   end,
-  lists:filter(P, ?COLLECTOR:get_observed_messages());
+  check_observed_messages(P);
 check_observed_messages(Pid, Message) when is_pid(Pid) ->
   P = fun(Msg) ->
     case Msg of
@@ -107,13 +116,13 @@ check_observed_messages(Pid, Message) when is_pid(Pid) ->
       _ -> false
     end
   end,
-  lists:filter(P, ?COLLECTOR:get_observed_messages());
+  check_observed_messages(P);
 check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message) ->
   Pid = rpc:call(Node, erlang, whereis, [Term]),
-  P = fun(Msg) ->
-    case Msg of
-      #'libtest.observation'{ pid=Pid, term=Message} -> true;
-      _ -> false
-    end
-  end,
+  check_observed_messages(Pid, Message);
+check_observed_messages(#registration_query{ type=local, name=Term }, Message) ->
+  Pid = whereis(Term),
+  check_observed_messages(Pid, Message).
+
+check_observed_messages(P) ->
   lists:filter(P, ?COLLECTOR:get_observed_messages()).

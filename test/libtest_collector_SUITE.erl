@@ -35,7 +35,7 @@
 -include("../include/libtest_internal.hrl").
 -compile(export_all).
 
--import(libtest.matchers, [observed_message/1, registered_name/2]).
+-import(libtest.matchers, [observed_message/1, registered_name/1, registered_name/2]).
 -import(libtest_collector_support, [rpc_stop/1]).
 
 all() -> ?CT_REGISTER_TESTS(?MODULE).
@@ -76,7 +76,14 @@ observed_messages_can_be_tagged_and_verified_by_pid(Config) ->
   rpc:call(Slave, libtest_collector_support, kick_observer_processs, [{message, "hello"}]),
   ?assertThat(Pid, observed_message({message, "hello"}), rpc_stop(Slave)).
 
-observed_messages_can_be_tagged_and_verified_by_name(Config) ->
+observed_messages_can_be_tagged_and_verified_by_name(_) ->
+  Mod = libtest_collector_support,
+  Mod:start_observer_process(),
+  Msg = {message, "dunbar has fallen"},
+  Mod:kick_observer_processs(Msg),
+  ?assertThat(registered_name(Mod), observed_message(Msg), fun() -> Mod:kick_observer_processs(shutdown) end).
+
+observed_messages_can_be_tagged_and_verified_by_remote_name(Config) ->
   Slave = ?config(slave, Config),
   ProcessName = libtest_collector_support,
   Pid = rpc:call(Slave, ProcessName, start_observer_process, []),

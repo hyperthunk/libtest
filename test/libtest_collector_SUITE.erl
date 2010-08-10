@@ -42,11 +42,12 @@
   observed_message_from/2,
   registered_name/1,
   registered_name/2]).
--import(libtest_collector_support, [rpc_stop/1, rpc/3]).
+-import(test_support, [rpc_stop/1, rpc/3]).
 
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
 init_per_suite(Config) ->
+  ?HECKLE(test_support, heckle, []),
   {ok, Server} = ?COLLECTOR:start(),
   ?PDEBUG("in init - collector ~p has started...~n", [Server]),
   ?PDEBUG("in init - collector globally registered against ~p", [global:whereis_name(?COLLECTOR)]),
@@ -60,6 +61,7 @@ init_per_suite(Config) ->
   [{slave, Slave}|[{server, Server}|Config]].
 
 end_per_suite(Config) ->
+  ?NOHECKLE,
   ?PDEBUG("stopping [~p]~n", [catch( ?COLLECTOR:stop() )]),
   Slave = ?config(slave, Config),
   slave:stop(Slave),
@@ -73,7 +75,7 @@ collector_is_singleton_process(Config) ->
 
 observe_macro_maps_messages_to_collector(Config) ->
   Slave = ?config(slave, Config),
-  X = rpc:call(Slave, libtest_collector_support, raise_notice_event, []),
+  X = rpc:call(Slave, test_support, raise_notice_event, []),
   ?assertThat(?COLLECTOR, observed_message({hello, 12345})).
 
 observed_messages_can_be_tagged_and_verified(Config) ->
@@ -84,16 +86,18 @@ observed_messages_can_be_tagged_and_verified(Config) ->
     tag=category1
   },
   global:send('libtest.collector', Record),
-  ?assertThat(?COLLECTOR, categorises(observed_message({message, "woo hoo"}), as(category1))).
+  ?assertThat(?COLLECTOR,
+    categorises(observed_message({message, "woo hoo"}),
+      as(category1))).
 
 observed_messages_can_be_tagged_and_verified_by_pid(Config) ->
   Slave = ?config(slave, Config),
-  Pid = rpc:call(Slave, libtest_collector_support, start_observer_process, []),
-  rpc:call(Slave, libtest_collector_support, kick_observer_process, [{message, "hello"}]),
+  Pid = rpc:call(Slave, test_support, start_observer_process, []),
+  rpc:call(Slave, test_support, kick_observer_process, [{message, "hello"}]),
   ?assertThat(Pid, observed_message({message, "hello"}), rpc_stop(Slave)).
 
 observed_messages_can_be_tagged_and_verified_by_name(_) ->
-  Mod = libtest_collector_support,
+  Mod = test_support,
   Mod:start_observer_process(),
   Msg = {message, "dunbar has fallen"},
   Mod:kick_observer_process(Msg),
@@ -104,7 +108,7 @@ observed_messages_can_be_tagged_and_verified_by_remote_name(Config) ->
   Pid = rpc(Slave, start_observer_process, []),
   Msg = {message, "dunbar has fallen"},
   rpc(Slave, kick_observer_process, Msg),
-  ProcessName = libtest_collector_support,
+  ProcessName = test_support,
   ?assertThat(registered_name(Slave, ProcessName), observed_message(Msg), rpc_stop(Slave)).
 
 observed_messages_can_be_tagged_and_verified_by_global_name(Config) ->
@@ -113,11 +117,11 @@ observed_messages_can_be_tagged_and_verified_by_global_name(Config) ->
   Msg = {message, "na fineachan gaidhealach"},
   rpc(Slave, kick_global_process, [?MODULE, Msg]),
   global:sync(),
-  ProcessName = libtest_collector_support,
+  ProcessName = test_support,
   ?assertThat(registered_name({global, ?MODULE}), observed_message(Msg), rpc_stop(Slave)).
 
 observed_messages_can_be_tagged_and_verified_by_sender(Config) ->
-  Mod = libtest_collector_support,
+  Mod = test_support,
   Mod:start_tagged_process(),
   Msg = {message, "lle mae'r cyfarfod?"},
   Mod ! {tagged_message, {sender, self()}, Msg},

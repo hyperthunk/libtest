@@ -117,11 +117,8 @@ observed_message_from(Sender, Message) when is_pid(Sender) ->
 observed_message(Message) ->
   #'hamcrest.matchspec'{
     matcher     = was_received(Message, undefined),
-    desc        = fun(Expected, Actual) when is_list(Actual) ->
-                        Desc = "Expected to have received message ~p, but something went wrong: ~s.",
-                        lists:flatten(io_lib:format(Desc, [Expected, Actual]));
-                     (Expected, Actual) ->
-                        Desc = "Expected to have received message ~p, but something went wrong: ~p.",
+    desc        = fun(Expected, Actual) ->
+                        Desc = "Expected to have received message ~62p,~n but something went wrong: ~62p.",
                         lists:flatten(io_lib:format(Desc, [Expected, Actual]))
                   end,
     expected    = Message

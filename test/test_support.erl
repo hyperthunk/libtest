@@ -41,12 +41,7 @@ heckle(Args) ->
 
 heckle(#'hamcrest.matchspec'{ expected=Exp }=Matcher, Actual) ->
   ct:pal("about to apply matcher with message [~n~s~n],~n against actual input [~s].~n",
-    [hamcrest:describe(Matcher, Actual), pp_term(Actual)]).
-
-pp_term(T) when is_pid(T) ->
-  io_lib:write(T);
-pp_term(T) ->
-  erl_pp:expr(erl_parse:abstract(T)).
+    [hamcrest:describe(Matcher, Actual), libtest.matchers:pp_term(Actual)]).
 
 %%% test fixture functions
 

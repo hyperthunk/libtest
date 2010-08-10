@@ -42,6 +42,8 @@
 -import(rpc).
 -import(global).
 -import(ct).
+-import(erl_pp).
+-import(erl_parse).
 
 -record(registration_query, {
   type      = local       :: local | global | remote,
@@ -57,7 +59,15 @@
         ,was_received/2
         ,was_received/3
         ,categorises/2
+        ,pp_term/1
         ,as/1]).
+
+pp_term(T) when is_pid(T) ->
+  io_lib:write(T);
+pp_term(T) when is_function(T) ->
+  io_lib:format("function ~p", [T]);
+pp_term(T) ->
+  erl_pp:expr(erl_parse:abstract(T)).
 
 %%
 %% @doc returns an internal structure representing a query against a
@@ -95,15 +105,10 @@ as(Category) ->
 %%
 -spec(observed_message_from/2 :: (pid(), term()) -> #'hamcrest.matchspec'{}).
 observed_message_from(Sender, Message) when is_pid(Sender) ->
+  Desc = fun observation_failed/2,
   #'hamcrest.matchspec'{
     matcher     = was_received(Message, Sender, undefined),
-    desc        = fun(Expected, Actual) when is_list(Actual) ->
-                        Desc = "Expected to have received message ~p, but something went wrong: ~s.",
-                        lists:flatten(io_lib:format(Desc, [Expected, Actual]));
-                     (Expected, Actual) ->
-                        Desc = "Expected to have received message ~p, but something went wrong: ~p.",
-                        lists:flatten(io_lib:format(Desc, [Expected, Actual]))
-                  end,
+    desc        = Desc,
     expected    = {Message, {from, Sender}}
   }.
 
@@ -115,14 +120,19 @@ observed_message_from(Sender, Message) when is_pid(Sender) ->
 %%
 -spec(observed_message/1 :: (term()) -> #'hamcrest.matchspec'{}).
 observed_message(Message) ->
+  Desc = fun observation_failed/2,
   #'hamcrest.matchspec'{
     matcher     = was_received(Message, undefined),
-    desc        = fun(Expected, Actual) ->
-                        Desc = "Expected to have received message ~62p,~n but something went wrong: ~62p.",
-                        lists:flatten(io_lib:format(Desc, [Expected, Actual]))
-                  end,
+    desc        = Desc,
     expected    = Message
   }.
+
+observation_failed(Expected, Actual) when is_list(Actual) ->
+  Desc = "Expected to have received message ~p, but something went wrong: ~s.",
+  lists:flatten(io_lib:format(Desc, [Expected, Actual]));
+observation_failed(Expected, Actual) ->
+  Desc = "Expected to have received message ~p, but something went wrong: ~s.",
+  lists:flatten(io_lib:format(Desc, [Expected, pp_term(Actual)])).
 
 %%
 %% @doc Returns a function that evaluates whether (or not) the specified
@@ -150,12 +160,17 @@ was_received(Message, Sender, Tag) ->
     end
   end.
 
+verify_pid(Pid) when is_pid(Pid) ->
+  Pid;
+verify_pid(Pid) ->
+  {internal_error, {invalid_pid, Pid}}.
+
 check_observed_messages(#registration_query{ type=global, name=Term }, Message) ->
-  check_observed_messages(global:whereis_name(Term), Message, undefined);
+  check_observed_messages(verify_pid(global:whereis_name(Term)), Message, undefined);
 check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message) ->
-  check_observed_messages(rpc:call(Node, erlang, whereis, [Term]), Message, undefined);
+  check_observed_messages(verify_pid(rpc:call(Node, erlang, whereis, [Term])), Message, undefined);
 check_observed_messages(#registration_query{ type=local, name=Term }, Message) ->
-  check_observed_messages(whereis(Term), Message, undefined);
+  check_observed_messages(verify_pid(whereis(Term)), Message, undefined);
 check_observed_messages('libtest.collector', Message) ->
   check_observed_messages(undefined, Message, undefined);
 check_observed_messages(Pid, Message) when is_pid(Pid) ->
@@ -175,6 +190,8 @@ check_observed_messages(Pid, Message, Sender) when is_pid(Pid) ->
     end
   end,
   check_observed_messages(P);
+check_observed_messages({internal_error, Err}, _, _) ->
+  erlang:error({assertion_override, Err});
 check_observed_messages(_Ref, Message, Sender) ->
   P = fun(Msg) ->
     case Msg of

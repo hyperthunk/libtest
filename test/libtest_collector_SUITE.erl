@@ -127,3 +127,46 @@ observed_messages_can_be_tagged_and_verified_by_sender(Config) ->
   Mod ! {tagged_message, {sender, self()}, Msg},
   ?assertThat(registered_name(Mod), observed_message_from(self(), Msg),
     fun() -> Mod:kick_observer_process(shutdown) end).
+
+unregistered_name_should_fail_registration(_) ->
+  ?assertThat(
+    fun() ->
+      assert_that(registered_name(not_registered), observed_message(irrelevant))
+    end, will_fail(error, {assertion_failed,{invalid_pid,undefined}})).
+
+unobserved_messages_should_fail(_) ->
+  ?assertThat(
+    fun() ->
+      assert_that(self(), observed_message({message, "no I didn't"}))
+    end, will_fail()).
+
+invalid_sender_checks_should_fail(_) ->
+  ?assertThat(
+    fun() ->
+      test_support:start_observer_process(),
+      test_support:kick_observer_process({message, sent}),
+      assert_that(?COLLECTOR, observed_message_from(self(), {message, sent}))
+    end, will_fail()).
+
+locally_registered_name_should_fail_global_registration_check(_) ->
+  ?assertThat(
+    fun() ->
+      register(my_process_name, self()),
+      self() ! {message, "foobar"},
+      ?OBSERVE_HERE(10),
+      assert_that(registered_name({global, my_process_name}), observed_message({message, "foobar"}))
+    end, will_fail(error, {assertion_failed,{invalid_pid,undefined}})).
+
+%%observations_should_fail_consistently_in_assertions(Config) ->
+%%  Observations = [
+%%    ?LAZY(?assertThat(registered_name(not_registered), observed_message(irrelevant))),
+%%    ?LAZY(?assertThat(self(), observed_message({message, "never seen this before"}))),
+%%    ?LAZY(?assertThat(?COLLECTOR, observed_message_from(self(), {message, "never sent"}))),
+%%    ?LAZY(?assertThat(registered_name({global, not_registered_globally}), observed_message(irrelevant))),
+%%    ?LAZY(?assertThat(registered_name(Slave, not_registered), observed_message(irrelevant))),
+%%    ?LAZY(
+%%    ?assertThat(?COLLECTOR,
+%%      categorises(observed_message({message, "woo hoo"}), as(undefined_category)))
+%%    )
+%%  ],
+

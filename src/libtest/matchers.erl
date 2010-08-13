@@ -176,12 +176,14 @@ check_observed_messages('libtest.collector', Message) ->
 check_observed_messages(Pid, Message) when is_pid(Pid) ->
   check_observed_messages(Pid, Message, undefined).
 
+%% why does rpc:call(Node, erlang, whereis, [Term]) work when the node name is invalid!?
+
 check_observed_messages(#registration_query{ type=global, name=Term }, Message, Sender) ->
-  check_observed_messages(global:whereis_name(Term), Message, Sender);
+  check_observed_messages(verify_pid(global:whereis_name(Term)), Message, Sender);
 check_observed_messages(#registration_query{ type=remote, context=Node, name=Term }, Message, Sender) ->
-  check_observed_messages(rpc:call(Node, erlang, whereis, [Term]), Message, Sender);
+  check_observed_messages(verify_pid(rpc:call(Node, erlang, whereis, [Term])), Message, Sender);
 check_observed_messages(#registration_query{ type=local, name=Term }, Message, Sender) ->
-  check_observed_messages(whereis(Term), Message, Sender);
+  check_observed_messages(verify_pid(whereis(Term)), Message, Sender);
 check_observed_messages(Pid, Message, Sender) when is_pid(Pid) ->
   P = fun(Msg) ->
     case Msg of

@@ -134,6 +134,21 @@ unregistered_name_should_fail_registration(_) ->
       assert_that(registered_name(not_registered), observed_message(irrelevant))
     end, will_fail(error, {assertion_failed,{invalid_pid,undefined}})).
 
+remote_registered_name_should_fail_when_node_down(_) ->
+  ?assertThat(
+    fun() ->
+      assert_that(registered_name('nosuchnode@localhost', nosuchprocess), observed_message({message, "baz"}))
+    end, will_fail(error, {assertion_failed,{invalid_pid,{badrpc,nodedown}}})).
+
+globally_registered_name_should_fail_global_registration_check(_) ->
+  ?assertThat(
+    fun() ->
+      register(my_process_name, self()),
+      self() ! {message, "foobar"},
+      ?OBSERVE_HERE(10),
+      assert_that(registered_name({global, my_process_name}), observed_message({message, "foobar"}))
+    end, will_fail(error, {assertion_failed,{invalid_pid,undefined}})).
+
 unobserved_messages_should_fail(_) ->
   ?assertThat(
     fun() ->
@@ -148,15 +163,6 @@ invalid_sender_checks_should_fail(_) ->
       assert_that(?COLLECTOR, observed_message_from(self(), {message, sent}))
     end, will_fail()).
 
-locally_registered_name_should_fail_global_registration_check(_) ->
-  ?assertThat(
-    fun() ->
-      register(my_process_name, self()),
-      self() ! {message, "foobar"},
-      ?OBSERVE_HERE(10),
-      assert_that(registered_name({global, my_process_name}), observed_message({message, "foobar"}))
-    end, will_fail(error, {assertion_failed,{invalid_pid,undefined}})).
-
 %%observations_should_fail_consistently_in_assertions(Config) ->
 %%  Observations = [
 %%    ?LAZY(?assertThat(registered_name(not_registered), observed_message(irrelevant))),
@@ -169,4 +175,3 @@ locally_registered_name_should_fail_global_registration_check(_) ->
 %%      categorises(observed_message({message, "woo hoo"}), as(undefined_category)))
 %%    )
 %%  ],
-

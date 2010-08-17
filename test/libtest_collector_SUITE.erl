@@ -46,6 +46,14 @@
 
 all() -> ?CT_REGISTER_TESTS(?MODULE).
 
+init_per_testcase(TestCase, Config) ->
+  ?CT_TRACE_ON(TestCase, Config),
+  Config.
+
+end_per_testcase(_TestCase, Config) ->
+  ?TRACE_OFF(Config),
+  ok.
+
 init_per_suite(Config) ->
   ?HECKLE(test_support, heckle, []),
   {ok, Server} = ?COLLECTOR:start(),

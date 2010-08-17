@@ -26,6 +26,10 @@
 %% @copyright 2006 Tim Watson.
 %% -----------------------------------------------------------------------------
 
+%% -----------------------------------------------------------------------------
+%%    Test Suite/Case Support.....
+%% -----------------------------------------------------------------------------
+
 -define(CT_REGISTER_TESTS(Mod),
 	All = [ FName || {FName, _} <- lists:filter(
       fun ({module_info,_}) -> false ;
@@ -40,6 +44,19 @@
   ],
   ct:pal("registering ~p~n", [All]),
   All).
+
+-define(CT_TRACE_ON(TestCase, Config),
+  libtest:ct_load_trace_configuration(TestCase, Config)).
+
+-define(TRACE_ON(Config),
+  libtest:load_bare_trace_configuration(Config)).
+
+-define(TRACE_OFF(Config),
+  libtest:unload_trace_configuration(Config)).
+
+%% -----------------------------------------------------------------------------
+%%    Support for Observation/Stubbing.....
+%% -----------------------------------------------------------------------------
 
 -record('libtest.observation', {
   node    :: node(),

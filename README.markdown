@@ -11,9 +11,10 @@ Libtest aims to *simplify* this stuff by providing
 
 I'm also quite interested in McErlang integration, but that's probably quite a way off.
 
-More documentation to follow. If you're brave enough to use (this is pre-alpha) then please submit bugs to the lighthouse project page (see below). Contributions welcome - you know what to do.
+More documentation to follow. If you're brave enough to use (this is pre-alpha) then please submit bugs to the project issues page. Contributions welcome - you know what to do.
 
 ### Links
 
-* Issues/Bugs: http://nebularis.lighthouseapp.com/projects/57524-libtest
-* Iteration planning: http://www.pivotaltracker.com/projects/105408
+* Documentation: http://wiki.github.com/hyperthunk/libtest
+* Issues/Bugs: http://github.com/hyperthunk/libtest/issues
+* Read-only downloadable documentation (git wiki access): git://github.com/hyperthunk/libtest.wiki.git

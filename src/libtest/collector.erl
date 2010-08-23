@@ -41,9 +41,9 @@
 -import(error_logger).
 -import(lists).
 -import(io).
--import(?GEN_SERVER).
+-import(gen_server2).
 
--behaviour(?GEN_SERVER).
+-behaviour(gen_server2).
 
 %% ------------------------------------------------------------------
 %% Server API Function Exports
@@ -91,7 +91,7 @@ start() ->
 %% @doc Starts the server with the supplied configuration.
 %%
 start(Options) ->
-  ?GEN_SERVER:start({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
+  gen_server2:start({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
 
 %%
 %% @doc Starts the server (with default configuration values) as part of a supervision tree.
@@ -103,13 +103,13 @@ start_link() ->
 %% @doc Starts the server with the supplied configuration as part of a supervision tree.
 %%
 start_link(Options) ->
-  ?GEN_SERVER:start_link({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
+  gen_server2:start_link({global, ?COLLECTOR}, ?MODULE, Options, gen_server_options(Options)).
 
 %%
 %% @doc Stops the registered instance of this server.
 %%
 stop() ->
-  ?GEN_SERVER:call({global, ?COLLECTOR}, stop).
+  gen_server2:call({global, ?COLLECTOR}, stop).
 
 %% -----------------------------------------------------------------------------
 %%      Collector API
@@ -122,7 +122,7 @@ stop() ->
 %%
 -spec(get_observed_messages/0 :: () -> [term()]).
 get_observed_messages() ->
-  #state{ observed=Obs } = ?GEN_SERVER:call({global, ?COLLECTOR}, {?COLLECTOR, retrieve_state}),
+  #state{ observed=Obs } = gen_server2:call({global, ?COLLECTOR}, {?COLLECTOR, retrieve_state}),
   Obs.
 
 %% ------------------------------------------------------------------

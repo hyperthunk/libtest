@@ -50,4 +50,4 @@ edoc:
 test: compile
 	@(cp src/*.erl ebin/)
 	@(cp src/libtest/*.erl ebin/libtest/)
-	@(env ERL_LIBS=$$ERL_LIBS ./rebar $$VERBOSE ct skip_deps=true)
+	@(env ERL_LIBS=$$ERL_LIBS rebar $$VERBOSE ct skip_deps=true)

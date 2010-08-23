@@ -48,6 +48,7 @@ all() -> ?CT_REGISTER_TESTS(?MODULE).
 
 init_per_testcase(TestCase, Config) ->
   ?CT_TRACE_ON(TestCase, Config),
+  ct:pal("TC: ~p~n", [TestCase]),
   Config.
 
 end_per_testcase(_TestCase, Config) ->
@@ -56,6 +57,7 @@ end_per_testcase(_TestCase, Config) ->
 
 init_per_suite(Config) ->
   ?HECKLE(test_support, heckle, []),
+  ?PDEBUG("starting collector...~n", []),
   {ok, Server} = ?COLLECTOR:start(),
   ?PDEBUG("in init - collector ~p has started...~n", [Server]),
   ?PDEBUG("in init - collector globally registered against ~p", [global:whereis_name(?COLLECTOR)]),

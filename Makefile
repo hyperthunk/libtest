@@ -29,10 +29,7 @@ VERBOSE ?= ""
 HERE := $(shell pwd)
 BUILD := $(HERE)/build
 
-all: check info
-    $(info ready to run the test, package and/or install tasks)
-
-all: info clean test
+all: info clean compile
 
 info:
 	$(info erl program located at $(ERL))

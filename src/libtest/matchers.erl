@@ -54,6 +54,9 @@
 
 -export([registered_name/1
         ,registered_name/2
+        ,observed/1
+        ,observed_all_of/1
+        ,observed_all_of/2
         ,observed_message/1
         ,observed_message_from/2
         ,was_received/2
@@ -96,6 +99,18 @@ categorises(#'hamcrest.matchspec'{ expected=Message }=Matcher, Category) ->
 %% @doc this is the default identity function - use as syntactic sugar for writing matchers
 as(Category) ->
   Category.
+
+%% @doc more syntactic sugar, so you can write <pre>?assertThat(Thing, observed(Blah))</pre>.
+observed(MatchSpec) when is_record(MatchSpec, 'hamcrest.matchspec') ->
+  MatchSpec.
+
+%% @doc creates an all_of matcher for the list of supplied messages.
+observed_all_of(Messages) when is_list(Messages) ->
+  all_of([ observed_message(M) || M <- Messages ]).
+
+%% @doc creates an all_of matcher for the list of supplied messages.
+observed_all_of(Sender, Messages) when is_list(Messages) ->
+  all_of([ observed_message_from(Sender, M) || M <- Messages ]).
 
 %%
 %% @doc Creates a matcher for messages received from the provided Sender, using the was_received/2
